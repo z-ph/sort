@@ -5,7 +5,6 @@ import { runBenchmark, AlgorithmGenerators } from './services/sortingAlgorithms'
 import SortVisualizer from './components/SortVisualizer';
 import ControlPanel from './components/ControlPanel';
 import StatsBoard from './components/StatsBoard';
-import FileImporter from './components/FileImporter';
 import { Download } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -110,14 +109,6 @@ const App: React.FC = () => {
     resetSorter(array);
   };
 
-  const handleImport = (importedArray: number[]) => {
-    // Cap size for visual performance
-    const validArray = importedArray.slice(0, 200); 
-    setArraySize(validArray.length);
-    setArray(validArray);
-    resetSorter(validArray);
-  };
-
   // Effect for Timer
   useEffect(() => {
     if (isPlaying) {
@@ -189,7 +180,6 @@ const App: React.FC = () => {
                 <h1 className="text-xl font-bold text-gray-900">排序算法综合演示系统</h1>
             </div>
             <div className="flex gap-4">
-                 <FileImporter onImport={handleImport} />
                  <button onClick={downloadLog} className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600">
                      <Download className="w-4 h-4" /> 下载报告
                  </button>
