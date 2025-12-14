@@ -143,6 +143,92 @@ export function* shellSort(array: number[]): Generator<SortStep> {
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), 'Finished');
 }
 
+// --- Counting Sort ---
+export function* countingSort(array: number[]): Generator<SortStep> {
+    const n = array.length;
+    const arr = [...array];
+    if (n === 0) return createStep(arr, [], [], [], 'Finished');
+  
+    // 1. Find max
+    let max = arr[0];
+    for(let i = 1; i < n; i++) {
+      yield createStep(arr, [i], [], [], `Finding max value: scanning ${arr[i]}`);
+      if (arr[i] > max) max = arr[i];
+    }
+  
+    // 2. Build Count Array
+    const count = new Array(max + 1).fill(0);
+    for(let i = 0; i < n; i++) {
+      yield createStep(arr, [i], [], [], `Counting occurrences of ${arr[i]}`);
+      count[arr[i]]++;
+    }
+  
+    // 3. Reconstruct Array
+    // Visualizing the "Simple" version (overwriting) which looks best for in-place visualization
+    let z = 0;
+    for(let i = 0; i <= max; i++) {
+      while(count[i] > 0) {
+          arr[z] = i;
+          yield createStep(arr, [], [z], Array.from({length: z+1}, (_, k) => k), `Placing value ${i} at index ${z}`);
+          z++;
+          count[i]--;
+      }
+    }
+  
+    return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), 'Finished');
+}
+
+// --- Radix Sort ---
+export function* radixSort(array: number[]): Generator<SortStep> {
+    const arr = [...array];
+    const n = arr.length;
+    
+    // Helper to get max
+    const getMax = (a: number[]) => {
+        let mx = a[0];
+        for(let i=1; i<a.length; i++) if (a[i] > mx) mx = a[i];
+        return mx;
+    };
+    
+    const maxVal = getMax(arr);
+  
+    // Do counting sort for every digit. exp is 10^i (1, 10, 100, ...)
+    for (let exp = 1; Math.floor(maxVal / exp) > 0; exp *= 10) {
+        const output = new Array(n).fill(0);
+        const count = new Array(10).fill(0);
+  
+        // Store count of occurrences in count[]
+        for (let i = 0; i < n; i++) {
+            yield createStep(arr, [i], [], [], `Radix (exp=${exp}): Scanning ${arr[i]}`);
+            const index = Math.floor(arr[i] / exp) % 10;
+            count[index]++;
+        }
+  
+        // Change count[i] so that count[i] now contains actual
+        // position of this digit in output[]
+        for (let i = 1; i < 10; i++) {
+            count[i] += count[i - 1];
+        }
+  
+        // Build the output array
+        for (let i = n - 1; i >= 0; i--) {
+            const index = Math.floor(arr[i] / exp) % 10;
+            output[count[index] - 1] = arr[i];
+            count[index]--;
+        }
+  
+        // Copy the output array to arr[], so that arr[] now
+        // contains sorted numbers according to current digit
+        for (let i = 0; i < n; i++) {
+            arr[i] = output[i];
+            // Highlight the update
+            yield createStep(arr, [], [i], [], `Radix (exp=${exp}): Rebuilding at index ${i}`);
+        }
+    }
+  
+    return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), 'Finished');
+}
+
 // --- Quick Sort (Recursive) ---
 export function* quickSortRecursive(array: number[]): Generator<SortStep> {
   const arr = [...array];
@@ -299,6 +385,8 @@ export const AlgorithmGenerators: Record<AlgorithmType, (array: number[]) => Gen
   [AlgorithmType.INSERTION]: insertionSort,
   [AlgorithmType.BINARY_INSERTION]: binaryInsertionSort,
   [AlgorithmType.SHELL]: shellSort,
+  [AlgorithmType.COUNTING]: countingSort,
+  [AlgorithmType.RADIX]: radixSort,
   [AlgorithmType.QUICK_REC]: quickSortRecursive,
   [AlgorithmType.QUICK_ITER]: quickSortIterative,
   [AlgorithmType.MERGE_REC]: mergeSortRecursive,

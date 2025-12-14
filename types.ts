@@ -4,6 +4,8 @@ export enum AlgorithmType {
   INSERTION = 'Insertion Sort',
   BINARY_INSERTION = 'Binary Insertion Sort',
   SHELL = 'Shell Sort',
+  COUNTING = 'Counting Sort',
+  RADIX = 'Radix Sort',
   QUICK_REC = 'Quick Sort (Recursive)',
   QUICK_ITER = 'Quick Sort (Iterative)',
   MERGE_REC = 'Merge Sort (Recursive)',
