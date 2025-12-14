@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, RotateCcw, FastForward, Settings } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, StepForward } from 'lucide-react';
 import { AlgorithmType } from '../types';
 import { ALGORITHM_OPTIONS } from '../constants';
 
@@ -14,6 +14,7 @@ interface Props {
   onPlay: () => void;
   onPause: () => void;
   onReset: () => void;
+  onNextStep: () => void;
   isPlaying: boolean;
   isFinished: boolean;
 }
@@ -29,6 +30,7 @@ const ControlPanel: React.FC<Props> = ({
   onPlay,
   onPause,
   onReset,
+  onNextStep,
   isPlaying,
   isFinished
 }) => {
@@ -45,7 +47,7 @@ const ControlPanel: React.FC<Props> = ({
           <select
             value={algorithm}
             onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
-            disabled={isPlaying}
+            disabled={isPlaying || (!!onNextStep && !isFinished && onNextStep.name === 'noop')} // Disable only if playing, allow changing if reset
             className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
           >
             {ALGORITHM_OPTIONS.map((opt) => (
@@ -114,6 +116,20 @@ const ControlPanel: React.FC<Props> = ({
               <Pause className="w-4 h-4" /> 暂停
             </button>
         )}
+
+        {/* Next Step Button */}
+        <button
+          onClick={onNextStep}
+          disabled={isPlaying || isFinished}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${
+            isPlaying || isFinished
+              ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-blue-600'
+          }`}
+          title="执行下一步"
+        >
+          <StepForward className="w-4 h-4" /> 单步
+        </button>
 
         <button
           onClick={onReset}

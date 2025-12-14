@@ -101,6 +101,19 @@ const App: React.FC = () => {
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
+  const handleNextStep = () => {
+    if (isFinished) return;
+    
+    // If user clicks "Next Step" before "Start", initialize the generator
+    if (!generatorRef.current) {
+      generatorRef.current = AlgorithmGenerators[algorithm](array);
+      startTimeRef.current = performance.now();
+    }
+    
+    // Execute one step
+    runSortingStep();
+  };
+
   const handleGenerate = () => {
     generateArray(arraySize);
   };
@@ -216,6 +229,7 @@ const App: React.FC = () => {
                     onPlay={handlePlay}
                     onPause={handlePause}
                     onReset={handleReset}
+                    onNextStep={handleNextStep}
                     isPlaying={isPlaying}
                     isFinished={isFinished}
                 />
