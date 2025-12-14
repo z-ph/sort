@@ -1,0 +1,54 @@
+name: Sync main to prod and deploy
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  sync-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch all refs
+        run: git fetch origin +refs/heads/*:refs/remotes/origin/*
+
+      - name: Prepare prod branch
+        run: |
+          if git ls-remote --heads origin prod | grep -q refs/heads/prod; then
+            git checkout -B prod origin/prod
+          else
+            git checkout -B prod origin/main
+          fi
+
+      - name: Rebase prod onto origin/main (if there are commits)
+        run: |
+          # If prod and main already point to same commit this is a no-op
+          if [ "$(git rev-parse prod)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main || (git rebase --abort && exit 1)
+          fi
+
+      - name: Push updated prod
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git push origin prod --force-with-lease
+
+      - name: Call prod deployment workflow
+        uses: ./.github/workflows/prod.yml
+        with:
+          deploy_ref: prod
+        secrets: inherit
