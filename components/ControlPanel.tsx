@@ -89,7 +89,7 @@ const ControlPanel: React.FC<Props> = ({
               value={size}
               onChange={handleSizeInputChange}
               disabled={isPlaying}
-              className="w-14 px-1 py-0.5 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-14 px-1 py-0.5 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
             />
             <input
               type="range"
@@ -112,7 +112,7 @@ const ControlPanel: React.FC<Props> = ({
               max="200"
               value={201 - speed}
               onChange={handleSpeedInputChange}
-              className="w-14 px-1 py-0.5 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-14 px-1 py-0.5 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
             />
             <input
               type="range"
