@@ -61,7 +61,8 @@ const ControlPanel: React.FC<Props> = ({
             <input
               type="range"
               min="10"
-              max="150"
+              max="1500"
+              step="10"
               value={size}
               onChange={(e) => setSize(Number(e.target.value))}
               disabled={isPlaying}
