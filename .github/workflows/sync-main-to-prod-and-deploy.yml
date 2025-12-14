@@ -47,7 +47,8 @@ jobs:
         run: |
           git push origin prod --force-with-lease
 
-      - name: Call prod deployment workflow
-        uses: ./.github/workflows/prod.yml
-        with:
-          deploy_ref: prod
+  deploy:
+    needs: sync-and-deploy
+    uses: ./.github/workflows/prod.yml
+    with:
+      deploy_ref: prod
