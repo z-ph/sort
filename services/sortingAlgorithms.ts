@@ -6,13 +6,15 @@ const createStep = (
   comparing: number[] = [],
   swapping: number[] = [],
   sorted: number[] = [],
-  description: string = ''
+  description: string = '',
+  aux?: SortStep['aux']
 ): SortStep => ({
   array: [...array],
   comparing,
   swapping,
   sorted,
   description,
+  aux
 });
 
 // =========================================
@@ -156,26 +158,50 @@ export function* countingSort(array: number[]): Generator<SortStep> {
     // 1. Find max
     let max = arr[0];
     for(let i = 1; i < n; i++) {
-      yield createStep(arr, [i], [], [], `寻找最大值: 扫描 ${arr[i]}`);
+      yield createStep(arr, [i], [], [], `寻找最大值: 扫描 ${arr[i]}`, { val: arr[i] });
       if (arr[i] > max) max = arr[i];
     }
   
     // 2. Build Count Array
     const count = new Array(max + 1).fill(0);
+    // Yield initial empty counts
+    yield createStep(arr, [], [], [], `初始化 ${max + 1} 个计数桶`, { counts: [...count] });
+
     for(let i = 0; i < n; i++) {
-      yield createStep(arr, [i], [], [], `统计 ${arr[i]} 出现次数`);
+      yield createStep(arr, [i], [], [], `统计 ${arr[i]} (桶[${arr[i]}])`, { 
+          val: arr[i], 
+          bucketIndex: arr[i],
+          counts: [...count] 
+      });
       count[arr[i]]++;
+      yield createStep(arr, [i], [], [], `桶[${arr[i]}] 计数 +1`, { 
+        val: arr[i], 
+        bucketIndex: arr[i], 
+        counts: [...count] 
+      });
     }
   
     // 3. Reconstruct Array
-    // Visualizing the "Simple" version (overwriting) which looks best for in-place visualization
     let z = 0;
     for(let i = 0; i <= max; i++) {
       while(count[i] > 0) {
+          // Before decrement
+          yield createStep(arr, [], [z], Array.from({length: z}, (_, k) => k), `从桶[${i}]取出 ${i}`, { 
+              bucketIndex: i, 
+              val: i,
+              counts: [...count]
+          });
+
           arr[z] = i;
-          yield createStep(arr, [], [z], Array.from({length: z+1}, (_, k) => k), `放置值 ${i} 到索引 ${z}`);
-          z++;
           count[i]--;
+
+          // After decrement
+          yield createStep(arr, [], [z], Array.from({length: z+1}, (_, k) => k), `放置 ${i} 到索引 ${z}`, { 
+            bucketIndex: i, 
+            val: i,
+            counts: [...count]
+        });
+          z++;
       }
     }
   
@@ -187,7 +213,6 @@ export function* radixSort(array: number[]): Generator<SortStep> {
     const arr = [...array];
     const n = arr.length;
     
-    // Helper to get max
     const getMax = (a: number[]) => {
         let mx = a[0];
         for(let i=1; i<a.length; i++) if (a[i] > mx) mx = a[i];
@@ -196,41 +221,115 @@ export function* radixSort(array: number[]): Generator<SortStep> {
     
     const maxVal = getMax(arr);
   
-    // Do counting sort for every digit. exp is 10^i (1, 10, 100, ...)
     for (let exp = 1; Math.floor(maxVal / exp) > 0; exp *= 10) {
         const output = new Array(n).fill(0);
         const count = new Array(10).fill(0);
+        
+        // Initial empty buckets state for this digit
+        yield createStep(arr, [], [], [], `基数排序 (位=${exp}): 初始化桶`, { counts: [...count] });
   
-        // Store count of occurrences in count[]
         for (let i = 0; i < n; i++) {
-            yield createStep(arr, [i], [], [], `基数排序 (位=${exp}): 扫描 ${arr[i]}`);
             const index = Math.floor(arr[i] / exp) % 10;
+            // Show current value being put into bucket, pass counts so visualizer can render buckets
+            yield createStep(arr, [i], [], [], `基数排序 (位=${exp}): 放入桶[${index}]`, { 
+                bucketIndex: index, 
+                val: arr[i],
+                counts: [...count] 
+            });
             count[index]++;
+            // Update bucket visualization
+            yield createStep(arr, [i], [], [], `基数排序 (位=${exp}): 桶[${index}] + 1`, { 
+                bucketIndex: index, 
+                val: arr[i],
+                counts: [...count] 
+            });
         }
   
-        // Change count[i] so that count[i] now contains actual
-        // position of this digit in output[]
         for (let i = 1; i < 10; i++) {
             count[i] += count[i - 1];
         }
   
-        // Build the output array
         for (let i = n - 1; i >= 0; i--) {
             const index = Math.floor(arr[i] / exp) % 10;
             output[count[index] - 1] = arr[i];
             count[index]--;
         }
   
-        // Copy the output array to arr[], so that arr[] now
-        // contains sorted numbers according to current digit
         for (let i = 0; i < n; i++) {
             arr[i] = output[i];
-            // Highlight the update
-            yield createStep(arr, [], [i], [], `基数排序 (位=${exp}): 重建索引 ${i}`);
+            yield createStep(arr, [], [i], [], `基数排序 (位=${exp}): 重建索引 ${i}`, { 
+                val: arr[i],
+                counts: new Array(10).fill(0) // Clear counts visually during reconstruction
+            });
         }
     }
   
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成');
+}
+
+// --- Quick Sort Common Partition (Two-Pointer / Hoare-like) ---
+function* _partition(arr: number[], low: number, high: number): Generator<SortStep, number, any> {
+    const pivot = arr[low];
+    let i = low + 1;
+    let j = high;
+    const range = { start: low, end: high };
+  
+    yield createStep(arr, [low], [], [], `选择基准值 ${pivot}`, { 
+        range, 
+        pivot: low,
+        pointers: { i, j }
+    });
+  
+    while (true) {
+        // Move i right
+        while (i <= j && arr[i] <= pivot) {
+             yield createStep(arr, [i, low], [], [], `左指针 i 向右: ${arr[i]} <= ${pivot}`, { 
+                range, pivot: low, pointers: { i, j }
+             });
+             i++;
+        }
+        if (i <= j) {
+            yield createStep(arr, [i, low], [], [], `左指针 i 停止: ${arr[i]} > ${pivot}`, { 
+                range, pivot: low, pointers: { i, j }
+             });
+        }
+  
+        // Move j left
+        while (i <= j && arr[j] > pivot) {
+             yield createStep(arr, [j, low], [], [], `右指针 j 向左: ${arr[j]} > ${pivot}`, { 
+                range, pivot: low, pointers: { i, j }
+             });
+             j--;
+        }
+        if (i <= j) {
+             yield createStep(arr, [j, low], [], [], `右指针 j 停止: ${arr[j]} <= ${pivot}`, { 
+                range, pivot: low, pointers: { i, j }
+             });
+        }
+  
+        if (i < j) {
+             yield createStep(arr, [i, j], [], [], `交换不满足的元素 ${arr[i]} 和 ${arr[j]}`, { 
+                range, pivot: low, pointers: { i, j }
+             });
+             [arr[i], arr[j]] = [arr[j], arr[i]];
+             yield createStep(arr, [i, j], [i, j], [], `交换完成`, { 
+                range, pivot: low, pointers: { i, j }
+             });
+        } else {
+             break;
+        }
+    }
+  
+    // Swap pivot to j
+    yield createStep(arr, [low, j], [], [], `将基准值 ${pivot} 归位到索引 ${j}`, { 
+        range, pivot: low, pointers: { i, j }
+    });
+    [arr[low], arr[j]] = [arr[j], arr[low]];
+    yield createStep(arr, [j], [j], [], `基准值 ${pivot} 已归位`, { 
+        range, pivot: j, pointers: { i, j }
+    });
+  
+    return j;
 }
 
 // --- Quick Sort (Recursive) ---
@@ -250,23 +349,6 @@ function* _quickSortRecursiveHelper(arr: number[], low: number, high: number): G
   }
 }
 
-function* _partition(arr: number[], low: number, high: number): Generator<SortStep> {
-  const pivot = arr[high];
-  let i = low - 1;
-  
-  for (let j = low; j < high; j++) {
-    yield createStep(arr, [j, high], [], [], `与基准值 ${pivot} 比较`);
-    if (arr[j] < pivot) {
-      i++;
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-      yield createStep(arr, [i, j], [i, j], [], `交换较小元素到左侧`);
-    }
-  }
-  [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
-  yield createStep(arr, [i + 1, high], [i + 1, high], [], `放置基准值到正确位置`);
-  return i + 1;
-}
-
 // --- Quick Sort (Iterative) ---
 export function* quickSortIterative(array: number[]): Generator<SortStep> {
   const arr = [...array];
@@ -280,28 +362,17 @@ export function* quickSortIterative(array: number[]): Generator<SortStep> {
     const high = stack.pop()!;
     const low = stack.pop()!;
 
-    const pivot = arr[high];
-    let i = low - 1;
-    for (let j = low; j < high; j++) {
-        yield createStep(arr, [j, high], [], [], `迭代: 与基准值 ${pivot} 比较`);
-        if (arr[j] < pivot) {
-            i++;
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-            yield createStep(arr, [i, j], [i, j], [], `迭代: 交换`);
-        }
-    }
-    [arr[i+1], arr[high]] = [arr[high], arr[i+1]];
-    yield createStep(arr, [i+1, high], [i+1, high], [], `迭代: 基准值已放置`);
+    // Call shared partition generator logic
+    const pi = yield* _partition(arr, low, high);
     
-    const p = i + 1;
-
-    if (p - 1 > low) {
-      stack.push(low);
-      stack.push(p - 1);
-    }
-    if (p + 1 < high) {
-      stack.push(p + 1);
+    // Push right side first (so left is processed first)
+    if (pi + 1 < high) {
+      stack.push(pi + 1);
       stack.push(high);
+    }
+    if (pi - 1 > low) {
+      stack.push(low);
+      stack.push(pi - 1);
     }
   }
   return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成');
@@ -317,29 +388,80 @@ export function* mergeSortRecursive(array: number[]): Generator<SortStep> {
 function* _mergeSortHelper(arr: number[], left: number, right: number): Generator<SortStep> {
     if (left >= right) return;
     const mid = Math.floor((left + right) / 2);
+    // Yield a step to show we are entering this range
+    yield createStep(arr, [], [], [], `分组: [${left} - ${right}]`, { range: { start: left, end: right } });
+    
     yield* _mergeSortHelper(arr, left, mid);
     yield* _mergeSortHelper(arr, mid + 1, right);
     yield* _merge(arr, left, mid, right);
 }
 
 function* _merge(arr: number[], left: number, mid: number, right: number): Generator<SortStep> {
+    const range = { start: left, end: right };
     const temp: number[] = [];
     let i = left, j = mid + 1;
     
+    // Initial state with pointers and empty buffer
+    yield createStep(arr, [], [], [], `准备归并: [${left}-${mid}] 与 [${mid+1}-${right}]`, { 
+        range, 
+        mergeBuffer: [],
+        pointers: { i, j }
+    });
+    
     while(i <= mid && j <= right) {
-        yield createStep(arr, [i, j], [], [], `归并: 比较 ${arr[i]} 和 ${arr[j]}`);
+        // Comparison step
+        yield createStep(arr, [i, j], [], [], `比较: ${arr[i]} vs ${arr[j]}`, { 
+            range, 
+            mergeBuffer: [...temp],
+            pointers: { i, j }
+        });
+
         if(arr[i] <= arr[j]) {
-            temp.push(arr[i++]);
+            temp.push(arr[i]);
+            // Move into buffer step
+            yield createStep(arr, [i], [], [], `取较小值 ${arr[i]} 放入辅助数组`, { 
+                range, 
+                mergeBuffer: [...temp],
+                pointers: { i: i + 1, j } // Preview next position
+            });
+            i++;
         } else {
-            temp.push(arr[j++]);
+            temp.push(arr[j]);
+            yield createStep(arr, [j], [], [], `取较小值 ${arr[j]} 放入辅助数组`, { 
+                range, 
+                mergeBuffer: [...temp],
+                pointers: { i, j: j + 1 } // Preview next position
+            });
+            j++;
         }
     }
-    while(i <= mid) temp.push(arr[i++]);
-    while(j <= right) temp.push(arr[j++]);
+    
+    while(i <= mid) {
+        temp.push(arr[i]);
+        yield createStep(arr, [i], [], [], `将剩余元素 ${arr[i]} 放入辅助数组`, { 
+            range, 
+            mergeBuffer: [...temp],
+            pointers: { i: i + 1, j }
+        });
+        i++;
+    }
+    while(j <= right) {
+        temp.push(arr[j]);
+        yield createStep(arr, [j], [], [], `将剩余元素 ${arr[j]} 放入辅助数组`, { 
+            range, 
+            mergeBuffer: [...temp],
+            pointers: { i, j: j + 1 }
+        });
+        j++;
+    }
 
+    // Copy back
     for(let k = 0; k < temp.length; k++) {
         arr[left + k] = temp[k];
-        yield createStep(arr, [], [left+k], [], `归并: 更新索引 ${left+k} 的值`);
+        yield createStep(arr, [], [left+k], [], `写回: 将辅助数组值 ${temp[k]} 更新到索引 ${left+k}`, { 
+            range, 
+            mergeBuffer: [...temp] 
+        });
     }
 }
 
@@ -354,7 +476,7 @@ export function* heapSort(array: number[]): Generator<SortStep> {
 
     for (let i = n - 1; i > 0; i--) {
         [arr[0], arr[i]] = [arr[i], arr[0]];
-        yield createStep(arr, [0, i], [0, i], [], `最大值移至末尾`);
+        yield createStep(arr, [0, i], [0, i], [], `最大值移至末尾`, { heapSize: i });
         yield* _heapify(arr, i, 0);
     }
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成');
@@ -364,19 +486,20 @@ function* _heapify(arr: number[], n: number, i: number): Generator<SortStep> {
     let largest = i;
     const l = 2 * i + 1;
     const r = 2 * i + 2;
+    const aux = { heapSize: n };
 
     if (l < n) {
-        yield createStep(arr, [l, largest], [], [], `堆化: 比较左子节点`);
+        yield createStep(arr, [l, largest], [], [], `堆化: 比较左子节点`, aux);
         if (arr[l] > arr[largest]) largest = l;
     }
     if (r < n) {
-        yield createStep(arr, [r, largest], [], [], `堆化: 比较右子节点`);
+        yield createStep(arr, [r, largest], [], [], `堆化: 比较右子节点`, aux);
         if (arr[r] > arr[largest]) largest = r;
     }
 
     if (largest !== i) {
         [arr[i], arr[largest]] = [arr[largest], arr[i]];
-        yield createStep(arr, [i, largest], [i, largest], [], `堆化: 交换`);
+        yield createStep(arr, [i, largest], [i, largest], [], `堆化: 交换`, aux);
         yield* _heapify(arr, n, largest);
     }
 }
@@ -538,20 +661,36 @@ const pureAlgorithms: Record<AlgorithmType, (arr: number[]) => BenchmarkResult> 
     },
     [AlgorithmType.QUICK_REC]: (arr) => {
         let comparisons = 0, swaps = 0;
+        // Two-pointer partition
         const partition = (a: number[], low: number, high: number) => {
-            const pivot = a[high];
-            let i = low - 1;
-            for (let j = low; j < high; j++) {
-                comparisons++;
-                if (a[j] < pivot) {
+            const pivot = a[low];
+            let i = low + 1;
+            let j = high;
+            while (true) {
+                while (i <= j && a[i] <= pivot) {
+                    comparisons++;
                     i++;
+                }
+                if (i <= j) comparisons++; // Final check check
+
+                while (i <= j && a[j] > pivot) {
+                    comparisons++;
+                    j--;
+                }
+                if (i <= j) comparisons++;
+
+                if (i <= j) {
                     [a[i], a[j]] = [a[j], a[i]];
                     swaps++;
+                    i++;
+                    j--;
+                } else {
+                    break;
                 }
             }
-            [a[i+1], a[high]] = [a[high], a[i+1]];
+            [a[low], a[j]] = [a[j], a[low]];
             swaps++;
-            return i + 1;
+            return j;
         };
         const sort = (a: number[], low: number, high: number) => {
             if (low < high) {
@@ -570,21 +709,32 @@ const pureAlgorithms: Record<AlgorithmType, (arr: number[]) => BenchmarkResult> 
         while (stack.length) {
             const high = stack.pop()!;
             const low = stack.pop()!;
-            const pivot = arr[high];
-            let i = low - 1;
-            for (let j = low; j < high; j++) {
-                comparisons++;
-                if (arr[j] < pivot) {
-                    i++;
+            
+            // Inline Two-pointer partition
+            const pivot = arr[low];
+            let i = low + 1;
+            let j = high;
+            while (true) {
+                while (i <= j && arr[i] <= pivot) { comparisons++; i++; }
+                if (i <= j) comparisons++;
+                while (i <= j && arr[j] > pivot) { comparisons++; j--; }
+                if (i <= j) comparisons++;
+                
+                if (i <= j) {
                     [arr[i], arr[j]] = [arr[j], arr[i]];
                     swaps++;
+                    i++;
+                    j--;
+                } else {
+                    break;
                 }
             }
-            [arr[i+1], arr[high]] = [arr[high], arr[i+1]];
+            [arr[low], arr[j]] = [arr[j], arr[low]];
             swaps++;
-            const p = i + 1;
-            if (p - 1 > low) stack.push(low, p - 1);
-            if (p + 1 < high) stack.push(p + 1, high);
+            const pi = j;
+
+            if (pi + 1 < high) stack.push(pi + 1, high);
+            if (pi - 1 > low) stack.push(low, pi - 1);
         }
         return { time: 0, comparisons, swaps };
     },

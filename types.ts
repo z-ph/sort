@@ -19,6 +19,17 @@ export interface SortStep {
   swapping: number[]; // Indices currently being swapped
   sorted: number[]; // Indices that are confirmed sorted
   description?: string;
+  // Auxiliary data for specific visualizations
+  aux?: {
+    range?: { start: number; end: number }; // For merge/quick sort scopes
+    pivot?: number; // For quick sort pivot
+    heapSize?: number; // For heap sort boundary
+    val?: number; // For counting sort (current value processing)
+    bucketIndex?: number; // For counting/radix sort (current bucket)
+    counts?: number[]; // Snapshot of counts array (optional)
+    mergeBuffer?: number[]; // Snapshot of temp array for merge sort
+    pointers?: { [label: string]: number }; // Named pointers like { i: 2, j: 5 }
+  };
 }
 
 export interface SortStats {

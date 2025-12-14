@@ -3,6 +3,7 @@ import { AlgorithmType, SortStep, SortStats } from './types';
 import { DEFAULT_ARRAY_SIZE, MIN_ARRAY_VALUE, MAX_ARRAY_VALUE, ANIMATION_SPEED_DEFAULT } from './constants';
 import { runBenchmark, AlgorithmGenerators } from './services/sortingAlgorithms';
 import SortVisualizer from './components/SortVisualizer';
+import ConceptVisualizer from './components/ConceptVisualizer';
 import ControlPanel from './components/ControlPanel';
 import StatsBoard from './components/StatsBoard';
 import { Download } from 'lucide-react';
@@ -247,8 +248,18 @@ const App: React.FC = () => {
             </div>
 
             {/* Right: Visualization Canvas */}
-            <div className="lg:col-span-2 h-[500px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
-                <SortVisualizer step={currentStep!} maxValue={MAX_ARRAY_VALUE} />
+            <div className="lg:col-span-2 space-y-6">
+                {/* Main Bar Chart Visualizer */}
+                <div className="h-[400px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
+                    <SortVisualizer step={currentStep!} maxValue={MAX_ARRAY_VALUE} algorithm={algorithm} />
+                </div>
+                
+                {/* Concept Visualizer (Displayed Below) */}
+                <ConceptVisualizer 
+                    step={currentStep} 
+                    algorithm={algorithm} 
+                    arraySize={arraySize}
+                />
             </div>
         </div>
 
