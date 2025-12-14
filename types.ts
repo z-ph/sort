@@ -2,6 +2,8 @@ export enum AlgorithmType {
   BUBBLE = 'Bubble Sort',
   SELECTION = 'Selection Sort',
   INSERTION = 'Insertion Sort',
+  BINARY_INSERTION = 'Binary Insertion Sort',
+  SHELL = 'Shell Sort',
   QUICK_REC = 'Quick Sort (Recursive)',
   QUICK_ITER = 'Quick Sort (Iterative)',
   MERGE_REC = 'Merge Sort (Recursive)',

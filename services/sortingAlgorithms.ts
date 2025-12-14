@@ -63,8 +63,7 @@ export function* selectionSort(array: number[]): Generator<SortStep> {
 export function* insertionSort(array: number[]): Generator<SortStep> {
   const n = array.length;
   const arr = [...array];
-  const sortedIndices: number[] = []; // Technically insertion sort builds sorted part from left
-
+  
   for (let i = 1; i < n; i++) {
     let key = arr[i];
     let j = i - 1;
@@ -80,6 +79,68 @@ export function* insertionSort(array: number[]): Generator<SortStep> {
     yield createStep(arr, [], [j+1], [], `Inserted key at ${j+1}`);
   }
   return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), 'Finished');
+}
+
+// --- Binary Insertion Sort ---
+export function* binaryInsertionSort(array: number[]): Generator<SortStep> {
+    const n = array.length;
+    const arr = [...array];
+
+    for (let i = 1; i < n; i++) {
+        let x = arr[i];
+        let left = 0;
+        let right = i - 1;
+
+        yield createStep(arr, [i], [], [], `Selected ${x} to insert`);
+
+        // Binary Search to find position
+        while (left <= right) {
+            let mid = Math.floor((left + right) / 2);
+            yield createStep(arr, [mid, i], [], [], `Binary Search: Comparing ${x} with ${arr[mid]}`);
+            if (x < arr[mid]) {
+                right = mid - 1;
+            } else {
+                left = mid + 1;
+            }
+        }
+        
+        // Shift elements to make space
+        for (let j = i - 1; j >= left; j--) {
+            arr[j + 1] = arr[j];
+            yield createStep(arr, [], [j+1, j], [], `Shifting ${arr[j]} to right`);
+        }
+        arr[left] = x;
+        yield createStep(arr, [], [left], [], `Inserted ${x} at index ${left}`);
+    }
+    return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), 'Finished');
+}
+
+// --- Shell Sort ---
+export function* shellSort(array: number[]): Generator<SortStep> {
+    const n = array.length;
+    const arr = [...array];
+
+    // Gap sequence: n/2, n/4, ..., 1
+    for (let gap = Math.floor(n / 2); gap > 0; gap = Math.floor(gap / 2)) {
+        for (let i = gap; i < n; i++) {
+            let temp = arr[i];
+            let j;
+            yield createStep(arr, [i], [], [], `Gap ${gap}: selected ${temp}`);
+
+            for (j = i; j >= gap; j -= gap) {
+                 yield createStep(arr, [j - gap], [], [], `Gap ${gap}: Comparing ${temp} with ${arr[j-gap]}`);
+                 if (arr[j - gap] > temp) {
+                     arr[j] = arr[j - gap];
+                     yield createStep(arr, [j, j-gap], [j, j-gap], [], `Gap ${gap}: Moving ${arr[j-gap]} to pos ${j}`);
+                 } else {
+                     break;
+                 }
+            }
+            arr[j] = temp;
+            yield createStep(arr, [], [j], [], `Gap ${gap}: Inserted ${temp} at ${j}`);
+        }
+    }
+    return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), 'Finished');
 }
 
 // --- Quick Sort (Recursive) ---
@@ -236,6 +297,8 @@ export const AlgorithmGenerators: Record<AlgorithmType, (array: number[]) => Gen
   [AlgorithmType.BUBBLE]: bubbleSort,
   [AlgorithmType.SELECTION]: selectionSort,
   [AlgorithmType.INSERTION]: insertionSort,
+  [AlgorithmType.BINARY_INSERTION]: binaryInsertionSort,
+  [AlgorithmType.SHELL]: shellSort,
   [AlgorithmType.QUICK_REC]: quickSortRecursive,
   [AlgorithmType.QUICK_ITER]: quickSortIterative,
   [AlgorithmType.MERGE_REC]: mergeSortRecursive,

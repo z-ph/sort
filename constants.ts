@@ -9,6 +9,8 @@ export const ALGORITHM_OPTIONS = [
   { value: AlgorithmType.BUBBLE, label: 'Bubble Sort', complexity: 'O(n²)' },
   { value: AlgorithmType.SELECTION, label: 'Selection Sort', complexity: 'O(n²)' },
   { value: AlgorithmType.INSERTION, label: 'Insertion Sort', complexity: 'O(n²)' },
+  { value: AlgorithmType.BINARY_INSERTION, label: 'Binary Insertion Sort', complexity: 'O(n²)' },
+  { value: AlgorithmType.SHELL, label: 'Shell Sort', complexity: 'O(n log n)' },
   { value: AlgorithmType.QUICK_REC, label: 'Quick Sort (Recursive)', complexity: 'O(n log n)' },
   { value: AlgorithmType.QUICK_ITER, label: 'Quick Sort (Iterative)', complexity: 'O(n log n)' },
   { value: AlgorithmType.MERGE_REC, label: 'Merge Sort (Recursive)', complexity: 'O(n log n)' },
