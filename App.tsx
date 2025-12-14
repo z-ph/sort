@@ -150,12 +150,23 @@ const App: React.FC = () => {
 
   // Download Logs
   const downloadLog = () => {
-      const logContent = JSON.stringify({
+      // 1. Sample steps to avoid overly large files (keep every 10th step + last step)
+      const sampledSteps = stepsLogRef.current.filter((_, i) => i % 10 === 0 || i === stepsLogRef.current.length - 1);
+      
+      // 2. Map steps to only include the 'array' field, excluding animation props like comparing/swapping/description
+      const simplifiedSteps = sampledSteps.map(step => ({
+          array: step.array
+      }));
+
+      // 3. Construct the final export object with initial data and simplified steps
+      const exportData = {
           initialArray: array,
           algorithm: algorithm,
-          steps: stepsLogRef.current.filter((_, i) => i % 10 === 0 || i === stepsLogRef.current.length - 1), // Sample every 10th step to save space
+          steps: simplifiedSteps,
           finalStats: stats
-      }, null, 2);
+      };
+      
+      const logContent = JSON.stringify(exportData, null, 2);
       
       const blob = new Blob([logContent], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
