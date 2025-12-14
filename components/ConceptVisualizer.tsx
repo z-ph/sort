@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlgorithmType, SortStep } from '../types';
 import { CHART_COLORS } from '../constants';
-import { ArrowUp, Play, Pause, StepForward, RotateCcw, RefreshCw } from 'lucide-react';
+import { ArrowUp, Play, Pause, StepForward, RotateCcw, RefreshCw, ScanEye, EyeOff, Maximize2, Minimize2 } from 'lucide-react';
 
 interface Props {
   step: SortStep | null;
@@ -29,9 +29,14 @@ const ConceptVisualizer: React.FC<Props> = ({
     isFinished
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isTracking, setIsTracking] = useState(true);
+  const [isGlobalView, setIsGlobalView] = useState(false);
 
   // Auto-scroll to active element
   useEffect(() => {
+    // Disable auto-scroll if tracking is off or global view is on (everything is visible)
+    if (!isTracking || isGlobalView) return;
+
     let targetElement: Element | null = null;
 
     // 1. Counting / Radix Sort: Target Bucket
@@ -101,7 +106,7 @@ const ConceptVisualizer: React.FC<Props> = ({
            });
       }
     }
-  }, [step, algorithm]);
+  }, [step, algorithm, isTracking, isGlobalView]);
 
   if (!step) return null;
 
@@ -121,40 +126,45 @@ const ConceptVisualizer: React.FC<Props> = ({
     
     const counts = step.aux.counts;
     
+    // Scale style for global view
+    const contentStyle = isGlobalView ? { transform: 'scale(0.6)', transformOrigin: 'top center', width: '166%' } : {};
+
     return (
-      <div className="flex flex-col items-center w-full">
+      <div className="flex flex-col items-center w-full overflow-hidden">
         {/* Scrollable Container */}
         <div 
             ref={containerRef}
-            className="flex flex-wrap gap-2 p-4 w-full justify-center max-h-[280px] overflow-y-auto content-start bg-gray-50/50 rounded-inner relative"
+            className={`flex flex-wrap gap-2 p-4 w-full justify-center ${isGlobalView ? 'overflow-hidden' : 'max-h-[280px] overflow-y-auto'} content-start bg-gray-50/50 rounded-inner relative`}
         >
-          {counts.map((count, idx) => {
-            const isActive = step.aux?.bucketIndex === idx;
-            const isNonZero = count > 0;
-            
-            return (
-              <div 
-                key={idx} 
-                id={`bucket-${idx}`}
-                className="flex flex-col items-center gap-0.5 min-w-[28px]"
-              >
+          <div className="flex flex-wrap gap-2 justify-center w-full" style={contentStyle}>
+            {counts.map((count, idx) => {
+                const isActive = step.aux?.bucketIndex === idx;
+                const isNonZero = count > 0;
+                
+                return (
                 <div 
-                  className={`w-7 h-7 text-xs border rounded flex items-center justify-center font-medium transition-all duration-200 ${
-                    isActive 
-                        ? 'border-blue-500 bg-blue-100 scale-125 shadow-lg z-10 ring-2 ring-blue-300' 
-                        : isNonZero 
-                            ? 'border-gray-300 bg-white text-gray-800 font-bold'
-                            : 'border-gray-100 bg-white/50 text-gray-300'
-                  }`}
+                    key={idx} 
+                    id={`bucket-${idx}`}
+                    className="flex flex-col items-center gap-0.5 min-w-[28px]"
                 >
-                  {count}
+                    <div 
+                    className={`w-7 h-7 text-xs border rounded flex items-center justify-center font-medium transition-all duration-200 ${
+                        isActive 
+                            ? 'border-blue-500 bg-blue-100 scale-125 shadow-lg z-10 ring-2 ring-blue-300' 
+                            : isNonZero 
+                                ? 'border-gray-300 bg-white text-gray-800 font-bold'
+                                : 'border-gray-100 bg-white/50 text-gray-300'
+                    }`}
+                    >
+                    {count}
+                    </div>
+                    <span className={`text-[9px] font-mono select-none ${isActive ? 'text-blue-600 font-bold' : 'text-gray-400'}`}>
+                        {idx}
+                    </span>
                 </div>
-                <span className={`text-[9px] font-mono select-none ${isActive ? 'text-blue-600 font-bold' : 'text-gray-400'}`}>
-                    {idx}
-                </span>
-              </div>
-            );
-          })}
+                );
+            })}
+          </div>
         </div>
         <div className="flex justify-between w-full px-4 mt-2 text-xs text-gray-500">
              <span>* 桶下标对应{algorithm === AlgorithmType.RADIX ? '当前位数值' : '数值'}</span>
@@ -227,14 +237,19 @@ const ConceptVisualizer: React.FC<Props> = ({
           );
       };
 
+      // In global view, we use viewBox to scale the SVG to fit the container
+      const svgProps = isGlobalView 
+        ? { viewBox: `0 0 ${width} ${height}`, className: "w-full h-full max-h-[400px]" }
+        : { width, height, className: "min-w-[300px]" };
+
       return (
           <div 
             ref={containerRef}
-            className="w-full overflow-auto p-4 max-h-[500px]"
+            className={`w-full p-4 ${isGlobalView ? 'h-full flex items-center justify-center overflow-hidden' : 'overflow-auto max-h-[500px]'}`}
           >
               {/* Wrapper to handle centering when content is small, and scroll when content is large */}
-              <div className="min-w-full w-fit flex justify-center">
-                  <svg width={width} height={height} className="min-w-[300px]">
+              <div className={`${!isGlobalView ? 'min-w-full w-fit' : 'w-full h-full'} flex justify-center`}>
+                  <svg {...svgProps}>
                       {renderNode(0, width / 2, 40, 0)}
                   </svg>
               </div>
@@ -258,98 +273,103 @@ const ConceptVisualizer: React.FC<Props> = ({
           splitIdx = step.aux.pivot - start;
       }
 
+      // Scale style for global view
+      const contentStyle = isGlobalView ? { transform: 'scale(0.8)', transformOrigin: 'top center', width: '125%' } : {};
+
       return (
-          <div className="flex flex-col items-center w-full gap-4 p-4">
-              {/* Main Subarray Visualization */}
-              <div className="flex items-center gap-1 justify-center flex-wrap pt-4">
-                   {subset.map((val, idx) => {
-                       const actualIdx = start + idx;
-                       const isComparing = step.comparing.includes(actualIdx);
-                       const isSwapping = step.swapping.includes(actualIdx);
-                       const isPivot = algorithm.includes('快速') && step.aux?.pivot === actualIdx;
-                       
-                       // Pointer Checks
-                       const isPtrI = step.aux?.pointers?.i === actualIdx;
-                       const isPtrJ = step.aux?.pointers?.j === actualIdx;
-                       
-                       let bgColor = 'bg-gray-100';
-                       let borderColor = 'border-gray-200';
-                       
-                       if (isPivot) { bgColor = 'bg-purple-100'; borderColor = 'border-purple-500'; }
-                       else if (isSwapping) { bgColor = 'bg-red-100'; borderColor = 'border-red-500'; }
-                       else if (isComparing) { bgColor = 'bg-yellow-100'; borderColor = 'border-yellow-500'; }
+          <div className="flex flex-col items-center w-full gap-4 p-4 overflow-hidden">
+              <div className="w-full flex flex-col items-center" style={contentStyle}>
+                {/* Main Subarray Visualization */}
+                <div className="flex items-center gap-1 justify-center flex-wrap pt-4">
+                    {subset.map((val, idx) => {
+                        const actualIdx = start + idx;
+                        const isComparing = step.comparing.includes(actualIdx);
+                        const isSwapping = step.swapping.includes(actualIdx);
+                        const isPivot = algorithm.includes('快速') && step.aux?.pivot === actualIdx;
+                        
+                        // Pointer Checks
+                        const isPtrI = step.aux?.pointers?.i === actualIdx;
+                        const isPtrJ = step.aux?.pointers?.j === actualIdx;
+                        
+                        let bgColor = 'bg-gray-100';
+                        let borderColor = 'border-gray-200';
+                        
+                        if (isPivot) { bgColor = 'bg-purple-100'; borderColor = 'border-purple-500'; }
+                        else if (isSwapping) { bgColor = 'bg-red-100'; borderColor = 'border-red-500'; }
+                        else if (isComparing) { bgColor = 'bg-yellow-100'; borderColor = 'border-yellow-500'; }
 
-                       return (
-                           <React.Fragment key={idx}>
-                               {/* Visual Splitter for Merge Sort */}
-                               {algorithm.includes('归并') && idx === splitIdx + 1 && (
-                                   <div className="w-px h-8 bg-blue-400 mx-2 border-dashed border-l border-blue-400" title="Split Point"></div>
-                               )}
-                               
-                               <div className="flex flex-col items-center relative">
-                                   <div className={`w-10 h-10 flex flex-col items-center justify-center border-2 rounded ${bgColor} ${borderColor} transition-colors z-10`}>
-                                       <span className="font-bold text-sm">{val}</span>
-                                       <span className="text-[8px] text-gray-500">{actualIdx}</span>
-                                   </div>
-                                   
-                                   {/* Pointers Visualization */}
-                                   {(isPtrI || isPtrJ) && (
-                                       <div className="absolute top-full mt-1 flex gap-1">
-                                           {isPtrI && (
-                                                <div className="flex flex-col items-center text-orange-600 animate-bounce" style={{animationDuration: '1s'}}>
-                                                    <ArrowUp size={14} strokeWidth={3} />
-                                                    <span className="text-xs font-bold leading-none">i</span>
-                                                </div>
-                                           )}
-                                           {isPtrJ && (
-                                                <div className="flex flex-col items-center text-blue-600 animate-bounce" style={{animationDuration: '1.2s'}}>
-                                                    <ArrowUp size={14} strokeWidth={3} />
-                                                    <span className="text-xs font-bold leading-none">j</span>
-                                                </div>
-                                           )}
-                                       </div>
-                                   )}
-                               </div>
-                           </React.Fragment>
-                       );
-                   })}
-              </div>
+                        return (
+                            <React.Fragment key={idx}>
+                                {/* Visual Splitter for Merge Sort */}
+                                {algorithm.includes('归并') && idx === splitIdx + 1 && (
+                                    <div className="w-px h-8 bg-blue-400 mx-2 border-dashed border-l border-blue-400" title="Split Point"></div>
+                                )}
+                                
+                                <div className="flex flex-col items-center relative">
+                                    <div className={`w-10 h-10 flex flex-col items-center justify-center border-2 rounded ${bgColor} ${borderColor} transition-colors z-10`}>
+                                        <span className="font-bold text-sm">{val}</span>
+                                        <span className="text-[8px] text-gray-500">{actualIdx}</span>
+                                    </div>
+                                    
+                                    {/* Pointers Visualization */}
+                                    {(isPtrI || isPtrJ) && (
+                                        <div className="absolute top-full mt-1 flex gap-1">
+                                            {isPtrI && (
+                                                    <div className="flex flex-col items-center text-orange-600 animate-bounce" style={{animationDuration: '1s'}}>
+                                                        <ArrowUp size={14} strokeWidth={3} />
+                                                        <span className="text-xs font-bold leading-none">i</span>
+                                                    </div>
+                                            )}
+                                            {isPtrJ && (
+                                                    <div className="flex flex-col items-center text-blue-600 animate-bounce" style={{animationDuration: '1.2s'}}>
+                                                        <ArrowUp size={14} strokeWidth={3} />
+                                                        <span className="text-xs font-bold leading-none">j</span>
+                                                    </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </React.Fragment>
+                        );
+                    })}
+                </div>
 
-              {/* Merge Sort Auxiliary Array Visualization */}
-              {algorithm.includes('归并') && mergeBuffer && (
-                 <div className="mt-4 p-3 bg-indigo-50 rounded-lg border border-indigo-100 flex flex-col items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                     <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider flex items-center gap-1">
-                         辅助数组 (Temp Array)
-                     </span>
-                     <div className="flex gap-1 flex-wrap justify-center min-h-[36px]">
-                         {mergeBuffer.length === 0 && <span className="text-xs text-gray-400 italic">空 (等待填充)</span>}
-                         {mergeBuffer.map((val, bIdx) => (
-                             <div key={bIdx} className="w-8 h-8 flex items-center justify-center bg-indigo-500 text-white rounded font-bold text-sm shadow-sm">
-                                 {val}
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-              )}
-
-              {/* Legend */}
-              <div className="text-xs text-gray-500 mt-6 bg-gray-50 px-3 py-1 rounded-full border border-gray-200">
-                  {algorithm.includes('归并') 
-                    ? (
-                        <span className="flex gap-3">
-                            <span><strong className="text-orange-600">i</strong>: 左组扫描指针</span>
-                            <span><strong className="text-blue-600">j</strong>: 右组扫描指针</span>
-                            <span><strong className="text-indigo-600">Temp</strong>: 有序合并结果</span>
+                {/* Merge Sort Auxiliary Array Visualization */}
+                {algorithm.includes('归并') && mergeBuffer && (
+                    <div className="mt-4 p-3 bg-indigo-50 rounded-lg border border-indigo-100 flex flex-col items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider flex items-center gap-1">
+                            辅助数组 (Temp Array)
                         </span>
-                    )
-                    : (
-                        <span className="flex gap-3">
-                            <span><strong className="text-purple-600">Pivot</strong>: 基准值</span>
-                            <span><strong className="text-orange-600">i</strong>: 左扫描指针 &rarr;</span>
-                            <span><strong className="text-blue-600">j</strong>: 右扫描指针 &larr;</span>
-                        </span>
-                    )
-                  }
+                        <div className="flex gap-1 flex-wrap justify-center min-h-[36px]">
+                            {mergeBuffer.length === 0 && <span className="text-xs text-gray-400 italic">空 (等待填充)</span>}
+                            {mergeBuffer.map((val, bIdx) => (
+                                <div key={bIdx} className="w-8 h-8 flex items-center justify-center bg-indigo-500 text-white rounded font-bold text-sm shadow-sm">
+                                    {val}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Legend */}
+                <div className="text-xs text-gray-500 mt-6 bg-gray-50 px-3 py-1 rounded-full border border-gray-200">
+                    {algorithm.includes('归并') 
+                        ? (
+                            <span className="flex gap-3">
+                                <span><strong className="text-orange-600">i</strong>: 左组扫描指针</span>
+                                <span><strong className="text-blue-600">j</strong>: 右组扫描指针</span>
+                                <span><strong className="text-indigo-600">Temp</strong>: 有序合并结果</span>
+                            </span>
+                        )
+                        : (
+                            <span className="flex gap-3">
+                                <span><strong className="text-purple-600">Pivot</strong>: 基准值</span>
+                                <span><strong className="text-orange-600">i</strong>: 左扫描指针 &rarr;</span>
+                                <span><strong className="text-blue-600">j</strong>: 右扫描指针 &larr;</span>
+                            </span>
+                        )
+                    }
+                </div>
               </div>
           </div>
       );
@@ -361,14 +381,16 @@ const ConceptVisualizer: React.FC<Props> = ({
       if (!gap) return <div className="text-gray-400 text-sm p-4">等待增量分组...</div>;
 
       const items = step.array;
+      const contentStyle = isGlobalView ? { transform: 'scale(0.6)', transformOrigin: 'top center', width: '166%' } : {};
       
       return (
-          <div className="flex flex-col items-center w-full">
+          <div className="flex flex-col items-center w-full overflow-hidden">
               <div 
                 ref={containerRef}
-                className="grid gap-2 p-4 overflow-auto max-h-[280px] w-full content-start bg-gray-50/50 rounded-inner relative"
+                className={`grid gap-2 p-4 w-full content-start bg-gray-50/50 rounded-inner relative ${isGlobalView ? 'overflow-hidden' : 'overflow-auto max-h-[280px]'}`}
                 style={{ 
-                    gridTemplateColumns: `repeat(${gap}, minmax(40px, 1fr))`
+                    gridTemplateColumns: `repeat(${gap}, minmax(40px, 1fr))`,
+                    ...contentStyle
                 }}
               >
                   {items.map((val, idx) => {
@@ -437,6 +459,27 @@ const ConceptVisualizer: React.FC<Props> = ({
             
             {/* Header Controls */}
             <div className="flex items-center gap-1 self-end sm:self-auto">
+                 {/* Tracking Toggle */}
+                 <button 
+                    onClick={() => setIsTracking(!isTracking)}
+                    disabled={isGlobalView} // Disable tracking toggle if global view is on
+                    className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${isTracking ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-gray-400 hover:text-gray-600'}`}
+                    title={isTracking ? "追踪模式: 开启" : "追踪模式: 关闭"}
+                 >
+                     {isTracking ? <ScanEye size={16} /> : <EyeOff size={16} />}
+                 </button>
+
+                 {/* Global View Toggle */}
+                 <button 
+                    onClick={() => setIsGlobalView(!isGlobalView)}
+                    className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${isGlobalView ? 'text-purple-600 bg-purple-50 hover:bg-purple-100' : 'text-gray-400 hover:text-gray-600'}`}
+                    title={isGlobalView ? "全局缩略: 开启" : "全局缩略: 关闭"}
+                 >
+                     {isGlobalView ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                 </button>
+
+                 <div className="w-px h-4 bg-gray-300 mx-1"></div>
+
                  <button 
                     onClick={onGenerate}
                     disabled={isPlaying}
@@ -471,7 +514,7 @@ const ConceptVisualizer: React.FC<Props> = ({
                  </button>
             </div>
         </div>
-        <div className="min-h-[150px] flex items-center justify-center">
+        <div className="min-h-[150px] flex items-center justify-center overflow-hidden">
             {content}
         </div>
     </div>

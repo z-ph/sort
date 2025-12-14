@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [speed, setSpeed] = useState(ANIMATION_SPEED_DEFAULT);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [isSorting, setIsSorting] = useState(false); // Track if a sorting session is active
   const [currentStep, setCurrentStep] = useState<SortStep | null>(null);
   const [stats, setStats] = useState({ comparisons: 0, swaps: 0, time: '0s' });
   const [benchmarkResults, setBenchmarkResults] = useState<SortStats[]>([]);
@@ -43,6 +44,7 @@ const App: React.FC = () => {
   const resetSorter = (arr: number[]) => {
     setIsPlaying(false);
     setIsFinished(false);
+    setIsSorting(false);
     setStats({ comparisons: 0, swaps: 0, time: '0s' });
     setCurrentStep({
       array: [...arr],
@@ -93,6 +95,7 @@ const App: React.FC = () => {
     if (!generatorRef.current) {
       generatorRef.current = AlgorithmGenerators[algorithm](array);
       startTimeRef.current = performance.now();
+      setIsSorting(true);
     }
     setIsPlaying(true);
   };
@@ -109,6 +112,7 @@ const App: React.FC = () => {
     if (!generatorRef.current) {
       generatorRef.current = AlgorithmGenerators[algorithm](array);
       startTimeRef.current = performance.now();
+      setIsSorting(true);
     }
     
     // Execute one step
@@ -234,6 +238,7 @@ const App: React.FC = () => {
                     onNextStep={handleNextStep}
                     isPlaying={isPlaying}
                     isFinished={isFinished}
+                    isSorting={isSorting}
                 />
 
                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">

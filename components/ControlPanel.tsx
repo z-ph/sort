@@ -17,6 +17,7 @@ interface Props {
   onNextStep: () => void;
   isPlaying: boolean;
   isFinished: boolean;
+  isSorting: boolean;
 }
 
 const ControlPanel: React.FC<Props> = ({
@@ -32,7 +33,8 @@ const ControlPanel: React.FC<Props> = ({
   onReset,
   onNextStep,
   isPlaying,
-  isFinished
+  isFinished,
+  isSorting
 }) => {
   // Handler for direct speed input (1-200)
   const handleSpeedInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,8 +69,8 @@ const ControlPanel: React.FC<Props> = ({
           <select
             value={algorithm}
             onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
-            disabled={isPlaying || (!!onNextStep && !isFinished && onNextStep.name === 'noop')} 
-            className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-auto min-w-[160px]"
+            disabled={isSorting} 
+            className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-auto min-w-[160px] disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
             {ALGORITHM_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -87,7 +89,7 @@ const ControlPanel: React.FC<Props> = ({
               value={size}
               onChange={handleSizeInputChange}
               disabled={isPlaying}
-              className="w-14 px-1 py-0.5 bg-white text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-14 px-1 py-0.5 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <input
               type="range"
@@ -110,7 +112,7 @@ const ControlPanel: React.FC<Props> = ({
               max="200"
               value={201 - speed}
               onChange={handleSpeedInputChange}
-              className="w-14 px-1 py-0.5 bg-white text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-14 px-1 py-0.5 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <input
               type="range"
