@@ -202,11 +202,12 @@ const App: React.FC = () => {
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
                     S
                 </div>
-                <h1 className="text-xl font-bold text-gray-900">排序算法综合演示系统</h1>
+                <h1 className="text-xl font-bold text-gray-900 hidden sm:block">排序算法综合演示系统</h1>
+                <h1 className="text-xl font-bold text-gray-900 block sm:hidden">排序演示</h1>
             </div>
             <div className="flex gap-4">
                  <button onClick={downloadLog} className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600">
-                     <Download className="w-4 h-4" /> 下载报告
+                     <Download className="w-4 h-4" /> <span className="hidden sm:inline">下载报告</span>
                  </button>
             </div>
         </div>
@@ -259,6 +260,13 @@ const App: React.FC = () => {
                     step={currentStep} 
                     algorithm={algorithm} 
                     arraySize={arraySize}
+                    onPlay={handlePlay}
+                    onPause={handlePause}
+                    onReset={handleReset}
+                    onGenerate={handleGenerate}
+                    onNextStep={handleNextStep}
+                    isPlaying={isPlaying}
+                    isFinished={isFinished}
                 />
             </div>
         </div>

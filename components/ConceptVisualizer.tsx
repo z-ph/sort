@@ -1,42 +1,107 @@
 import React, { useEffect, useRef } from 'react';
 import { AlgorithmType, SortStep } from '../types';
 import { CHART_COLORS } from '../constants';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Play, Pause, StepForward, RotateCcw, RefreshCw } from 'lucide-react';
 
 interface Props {
   step: SortStep | null;
   algorithm: AlgorithmType;
   arraySize: number;
+  onPlay: () => void;
+  onPause: () => void;
+  onReset: () => void;
+  onGenerate: () => void;
+  onNextStep: () => void;
+  isPlaying: boolean;
+  isFinished: boolean;
 }
 
-const ConceptVisualizer: React.FC<Props> = ({ step, algorithm, arraySize }) => {
+const ConceptVisualizer: React.FC<Props> = ({ 
+    step, 
+    algorithm, 
+    arraySize,
+    onPlay,
+    onPause,
+    onReset,
+    onGenerate,
+    onNextStep,
+    isPlaying,
+    isFinished
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to active bucket for Counting/Radix Sort
+  // Auto-scroll to active element
   useEffect(() => {
+    let targetElement: Element | null = null;
+
+    // 1. Counting / Radix Sort: Target Bucket
     if ((algorithm === AlgorithmType.COUNTING || algorithm === AlgorithmType.RADIX) && step?.aux?.bucketIndex !== undefined) {
-      const bucketId = `bucket-${step.aux.bucketIndex}`;
-      const element = document.getElementById(bucketId);
+      targetElement = document.getElementById(`bucket-${step.aux.bucketIndex}`);
+    } 
+    // 2. Shell Sort: Target Grid Item
+    else if (algorithm === AlgorithmType.SHELL && step) {
+       const targetIdx = step.swapping.length > 0 ? step.swapping[0] : (step.comparing.length > 0 ? step.comparing[0] : -1);
+       if (targetIdx !== -1) {
+           targetElement = document.getElementById(`shell-item-${targetIdx}`);
+       }
+    }
+    // 3. Heap Sort: Target Node (SVG)
+    else if (algorithm === AlgorithmType.HEAP && step) {
+       const targetIdx = step.swapping.length > 0 ? step.swapping[0] : (step.comparing.length > 0 ? step.comparing[0] : -1);
+       if (targetIdx !== -1) {
+           targetElement = document.getElementById(`heap-node-${targetIdx}`);
+       }
+    }
+
+    // Perform Scroll using getBoundingClientRect for better SVG support
+    if (targetElement && containerRef.current) {
       const container = containerRef.current;
+      const targetRect = targetElement.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      
+      // Calculate relative position inside the scrollable content
+      // We need to account for current scroll position
+      const relativeTop = targetRect.top - containerRect.top + container.scrollTop;
+      const relativeLeft = targetRect.left - containerRect.left + container.scrollLeft;
 
-      if (element && container) {
-        // Calculate position relative to the container
-        const elementTop = element.offsetTop;
-        const elementHeight = element.offsetHeight;
-        const containerTop = container.scrollTop;
-        const containerHeight = container.clientHeight;
+      const elementHeight = targetRect.height;
+      const elementWidth = targetRect.width;
+      const containerHeight = container.clientHeight;
+      const containerWidth = container.clientWidth;
 
-        // Check if element is out of view
-        if (elementTop < containerTop || elementTop + elementHeight > containerTop + containerHeight) {
-             // Scroll container to center the element
-             container.scrollTo({
-                 top: elementTop - containerHeight / 2 + elementHeight / 2,
-                 behavior: 'smooth'
-             });
-        }
+      let newTop = container.scrollTop;
+      let newLeft = container.scrollLeft;
+      let needsScroll = false;
+
+      // Vertical Logic
+      if (relativeTop < container.scrollTop + 20) {
+           // Element is above visible area (or too close to top)
+           newTop = Math.max(0, relativeTop - containerHeight / 2);
+           needsScroll = true;
+      } else if (relativeTop + elementHeight > container.scrollTop + containerHeight - 20) {
+           // Element is below visible area
+           newTop = relativeTop - containerHeight / 2;
+           needsScroll = true;
+      }
+
+      // Horizontal Logic
+      if (relativeLeft < container.scrollLeft + 20) {
+           newLeft = Math.max(0, relativeLeft - containerWidth / 2);
+           needsScroll = true;
+      } else if (relativeLeft + elementWidth > container.scrollLeft + containerWidth - 20) {
+           newLeft = relativeLeft - containerWidth / 2;
+           needsScroll = true;
+      }
+
+      if (needsScroll) {
+           container.scrollTo({
+               top: newTop,
+               left: newLeft,
+               behavior: 'smooth'
+           });
       }
     }
-  }, [step?.aux?.bucketIndex, algorithm]);
+  }, [step, algorithm]);
 
   if (!step) return null;
 
@@ -101,25 +166,22 @@ const ConceptVisualizer: React.FC<Props> = ({ step, algorithm, arraySize }) => {
 
   // 2. Heap Sort: Show Binary Tree
   const renderHeapSort = () => {
-      // If array is too large, tree visualization becomes unreadable
-      if (arraySize > 31) {
-          return (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-                  数据量过大 ({arraySize})，无法清晰展示树状结构。建议将数量调整至 30 以下。
-              </div>
-          );
-      }
-
       const arr = step.array;
-      const levels = Math.floor(Math.log2(arr.length)) + 1;
-      const height = levels * 60;
-      const width = Math.min(800, arr.length * 40);
+      // Remove size limit
+      
+      const depth = Math.floor(Math.log2(Math.max(1, arr.length)));
+      const height = Math.max(320, (depth + 2) * 80);
+      // Calculate dynamic width based on leaf nodes count to prevent overlap
+      const leafCount = Math.pow(2, depth);
+      const width = Math.max(800, leafCount * 50); // 50px per leaf
       
       const renderNode = (index: number, x: number, y: number, level: number) => {
           if (index >= arr.length) return null;
           
           const leftChildIdx = 2 * index + 1;
           const rightChildIdx = 2 * index + 2;
+          // Calculate offset for children based on current level and total width
+          // Logic: Level 0 (root) needs offset width/4. Level 1 needs width/8. Level k needs width / 2^(k+2)
           const xOffset = width / Math.pow(2, level + 2);
 
           const isComparing = step.comparing.includes(index);
@@ -132,33 +194,33 @@ const ConceptVisualizer: React.FC<Props> = ({ step, algorithm, arraySize }) => {
           else if (isComparing) circleColor = 'fill-yellow-100 stroke-yellow-500';
 
           return (
-              <g key={index}>
+              <g key={index} id={`heap-node-${index}`}>
                   {/* Lines to children */}
                   {leftChildIdx < arr.length && (
                       <line 
                         x1={x} y1={y + 15} 
-                        x2={x - xOffset} y2={y + 60 - 15} 
+                        x2={x - xOffset} y2={y + 80 - 15} 
                         stroke="#e2e8f0" strokeWidth="2" 
                       />
                   )}
                   {rightChildIdx < arr.length && (
                       <line 
                         x1={x} y1={y + 15} 
-                        x2={x + xOffset} y2={y + 60 - 15} 
+                        x2={x + xOffset} y2={y + 80 - 15} 
                         stroke="#e2e8f0" strokeWidth="2" 
                       />
                   )}
                   
                   {/* Children recursive call */}
-                  {renderNode(leftChildIdx, x - xOffset, y + 60, level + 1)}
-                  {renderNode(rightChildIdx, x + xOffset, y + 60, level + 1)}
+                  {renderNode(leftChildIdx, x - xOffset, y + 80, level + 1)}
+                  {renderNode(rightChildIdx, x + xOffset, y + 80, level + 1)}
 
                   {/* Node Circle */}
                   <circle cx={x} cy={y} r="16" className={`${circleColor} stroke-2 transition-colors duration-200`} />
                   <text x={x} y={y} dy=".3em" textAnchor="middle" className="text-xs font-mono font-bold select-none pointer-events-none">
                       {arr[index]}
                   </text>
-                  <text x={x} y={y + 28} textAnchor="middle" className="text-[8px] text-gray-400 select-none">
+                  <text x={x} y={y + 30} textAnchor="middle" className="text-[8px] text-gray-400 select-none">
                       {index}
                   </text>
               </g>
@@ -166,10 +228,16 @@ const ConceptVisualizer: React.FC<Props> = ({ step, algorithm, arraySize }) => {
       };
 
       return (
-          <div className="w-full overflow-x-auto flex justify-center p-4">
-              <svg width={width} height={height} className="min-w-[300px]">
-                  {renderNode(0, width / 2, 30, 0)}
-              </svg>
+          <div 
+            ref={containerRef}
+            className="w-full overflow-auto p-4 max-h-[500px]"
+          >
+              {/* Wrapper to handle centering when content is small, and scroll when content is large */}
+              <div className="min-w-full w-fit flex justify-center">
+                  <svg width={width} height={height} className="min-w-[300px]">
+                      {renderNode(0, width / 2, 40, 0)}
+                  </svg>
+              </div>
           </div>
       );
   };
@@ -287,6 +355,60 @@ const ConceptVisualizer: React.FC<Props> = ({ step, algorithm, arraySize }) => {
       );
   };
 
+  // 4. Shell Sort: Grid View to show groups
+  const renderShellSort = () => {
+      const gap = step.aux?.gap;
+      if (!gap) return <div className="text-gray-400 text-sm p-4">等待增量分组...</div>;
+
+      const items = step.array;
+      
+      return (
+          <div className="flex flex-col items-center w-full">
+              <div 
+                ref={containerRef}
+                className="grid gap-2 p-4 overflow-auto max-h-[280px] w-full content-start bg-gray-50/50 rounded-inner relative"
+                style={{ 
+                    gridTemplateColumns: `repeat(${gap}, minmax(40px, 1fr))`
+                }}
+              >
+                  {items.map((val, idx) => {
+                       const isComparing = step.comparing.includes(idx);
+                       const isSwapping = step.swapping.includes(idx);
+                       
+                       let bgColor = 'bg-gray-50';
+                       let borderColor = 'border-gray-200';
+                       
+                       // Highlight columns based on current index logic:
+                       const activeRemainder = step.comparing.length > 0 ? step.comparing[0] % gap : -1;
+                       const isInActiveGroup = idx % gap === activeRemainder;
+
+                       if (isSwapping) { bgColor = 'bg-red-100'; borderColor = 'border-red-500'; }
+                       else if (isComparing) { bgColor = 'bg-yellow-100'; borderColor = 'border-yellow-500'; }
+                       else if (isInActiveGroup && activeRemainder !== -1) { bgColor = 'bg-blue-50'; borderColor = 'border-blue-200'; }
+
+                       return (
+                           <div 
+                                key={idx} 
+                                id={`shell-item-${idx}`}
+                                className={`flex flex-col items-center p-2 rounded border ${bgColor} ${borderColor} transition-colors`}
+                           >
+                               <span className="font-bold text-sm text-gray-800">{val}</span>
+                               <span className="text-[9px] text-gray-400 mt-1">{idx}</span>
+                           </div>
+                       );
+                  })}
+              </div>
+              <div className="flex flex-col items-center gap-1 p-4">
+                  <span className="text-sm font-semibold text-blue-600">当前增量 (Gap): {gap}</span>
+                  <p className="text-xs text-gray-500 text-center max-w-md">
+                      数组被分为 {gap} 列（组），每列独立进行插入排序。<br/>
+                      这能让较小的元素快速移动到数组左侧。
+                  </p>
+              </div>
+          </div>
+      );
+  };
+
   // Dispatcher
   let content = null;
   if (algorithm === AlgorithmType.COUNTING || algorithm === AlgorithmType.RADIX) {
@@ -295,6 +417,8 @@ const ConceptVisualizer: React.FC<Props> = ({ step, algorithm, arraySize }) => {
       content = renderHeapSort();
   } else if (algorithm.includes('归并') || algorithm.includes('快速')) {
       content = renderRangeView();
+  } else if (algorithm === AlgorithmType.SHELL) {
+      content = renderShellSort();
   } else {
       return (
         <div className="bg-white p-6 rounded-xl border border-gray-200 text-center text-gray-400 text-sm">
@@ -305,9 +429,47 @@ const ConceptVisualizer: React.FC<Props> = ({ step, algorithm, arraySize }) => {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 font-semibold text-gray-700 text-sm flex items-center gap-2">
-            <span>✨ 算法原理透视</span>
-            <span className="text-xs font-normal text-gray-500 px-2 py-0.5 bg-gray-200 rounded-full">{algorithm}</span>
+        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 font-semibold text-gray-700 text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+                <span>✨ 算法原理透视</span>
+                <span className="text-xs font-normal text-gray-500 px-2 py-0.5 bg-gray-200 rounded-full">{algorithm}</span>
+            </div>
+            
+            {/* Header Controls */}
+            <div className="flex items-center gap-1 self-end sm:self-auto">
+                 <button 
+                    onClick={onGenerate}
+                    disabled={isPlaying}
+                    className="p-1.5 text-gray-600 hover:bg-white hover:text-blue-600 rounded-lg transition-colors border border-transparent hover:border-gray-200 disabled:opacity-50"
+                    title="生成新数组"
+                 >
+                     <RefreshCw size={16} />
+                 </button>
+                 <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                 <button 
+                    onClick={isPlaying ? onPause : onPlay}
+                    disabled={isFinished}
+                    className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${isPlaying ? 'bg-amber-100 text-amber-600' : 'text-gray-600 hover:bg-white hover:text-blue-600 border border-transparent hover:border-gray-200 disabled:opacity-50'}`}
+                    title={isPlaying ? "暂停" : "开始"}
+                 >
+                     {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+                 </button>
+                 <button 
+                    onClick={onNextStep}
+                    disabled={isPlaying || isFinished}
+                    className="p-1.5 text-gray-600 hover:bg-white hover:text-blue-600 rounded-lg transition-colors border border-transparent hover:border-gray-200 disabled:opacity-50"
+                    title="单步执行"
+                 >
+                     <StepForward size={16} />
+                 </button>
+                 <button 
+                    onClick={onReset}
+                    className="p-1.5 text-gray-600 hover:bg-white hover:text-blue-600 rounded-lg transition-colors border border-transparent hover:border-gray-200"
+                    title="重置"
+                 >
+                     <RotateCcw size={16} />
+                 </button>
+            </div>
         </div>
         <div className="min-h-[150px] flex items-center justify-center">
             {content}

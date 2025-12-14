@@ -128,22 +128,25 @@ export function* shellSort(array: number[]): Generator<SortStep> {
 
     // Gap sequence: n/2, n/4, ..., 1
     for (let gap = Math.floor(n / 2); gap > 0; gap = Math.floor(gap / 2)) {
+        // Yield an initial step for the new gap to update visualization structure
+        yield createStep(arr, [], [], [], `希尔排序: 设定增量 Gap = ${gap}`, { gap });
+
         for (let i = gap; i < n; i++) {
             let temp = arr[i];
             let j;
-            yield createStep(arr, [i], [], [], `增量 ${gap}: 选择 ${temp}`);
+            yield createStep(arr, [i], [], [], `增量 ${gap}: 选择 ${temp} 准备插入`, { gap });
 
             for (j = i; j >= gap; j -= gap) {
-                 yield createStep(arr, [j - gap], [], [], `增量 ${gap}: 比较 ${temp} 与 ${arr[j-gap]}`);
+                 yield createStep(arr, [j - gap], [], [], `增量 ${gap}: 比较 ${temp} 与 ${arr[j-gap]}`, { gap });
                  if (arr[j - gap] > temp) {
                      arr[j] = arr[j - gap];
-                     yield createStep(arr, [j, j-gap], [j, j-gap], [], `增量 ${gap}: 移动 ${arr[j-gap]} 到位置 ${j}`);
+                     yield createStep(arr, [j, j-gap], [j, j-gap], [], `增量 ${gap}: 移动 ${arr[j-gap]} 到位置 ${j}`, { gap });
                  } else {
                      break;
                  }
             }
             arr[j] = temp;
-            yield createStep(arr, [], [j], [], `增量 ${gap}: 在 ${j} 处插入 ${temp}`);
+            yield createStep(arr, [], [j], [], `增量 ${gap}: 在 ${j} 处插入 ${temp}`, { gap });
         }
     }
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成');

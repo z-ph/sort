@@ -29,6 +29,7 @@ export interface SortStep {
     counts?: number[]; // Snapshot of counts array (optional)
     mergeBuffer?: number[]; // Snapshot of temp array for merge sort
     pointers?: { [label: string]: number }; // Named pointers like { i: 2, j: 5 }
+    gap?: number; // For Shell Sort gap
   };
 }
 
