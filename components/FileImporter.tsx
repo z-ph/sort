@@ -24,7 +24,7 @@ const FileImporter: React.FC<Props> = ({ onImport }) => {
       if (numbers.length > 0) {
         onImport(numbers);
       } else {
-        alert("No valid numbers found in file.");
+        alert("文件中未找到有效数字。");
       }
     };
     reader.readAsText(file);
@@ -45,7 +45,7 @@ const FileImporter: React.FC<Props> = ({ onImport }) => {
         onClick={() => fileInputRef.current?.click()}
         className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition-colors"
       >
-        <Upload className="w-4 h-4" /> Load from File
+        <Upload className="w-4 h-4" /> 从文件导入
       </button>
     </div>
   );

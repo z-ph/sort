@@ -1,5 +1,5 @@
 {
-  "name": "SortMaster Pro",
-  "description": "A comprehensive sorting algorithm demonstration system featuring real-time visualization, performance benchmarking, recursive/non-recursive implementations, and AI-powered algorithm analysis.",
+  "name": "排序算法综合演示系统",
+  "description": "一个综合性的排序算法演示系统，具有实时可视化、性能基准测试以及递归/非递归实现功能。",
   "requestFramePermissions": []
 }

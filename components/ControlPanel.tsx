@@ -37,7 +37,7 @@ const ControlPanel: React.FC<Props> = ({
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Settings className="w-5 h-5 text-gray-500" />
-          <span className="font-semibold text-gray-700">Settings</span>
+          <span className="font-semibold text-gray-700">设置</span>
         </div>
 
         <div className="flex flex-wrap gap-4 items-center w-full sm:w-auto">
@@ -57,7 +57,7 @@ const ControlPanel: React.FC<Props> = ({
 
           {/* Size Slider */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Size: {size}</span>
+            <span className="text-sm text-gray-600">数量: {size}</span>
             <input
               type="range"
               min="10"
@@ -71,7 +71,7 @@ const ControlPanel: React.FC<Props> = ({
 
           {/* Speed Slider */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Speed</span>
+            <span className="text-sm text-gray-600">速度</span>
             <input
               type="range"
               min="1"
@@ -90,7 +90,7 @@ const ControlPanel: React.FC<Props> = ({
           disabled={isPlaying}
           className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
         >
-          Generate New Array
+          生成新数组
         </button>
         
         {!isPlaying ? (
@@ -103,14 +103,14 @@ const ControlPanel: React.FC<Props> = ({
                   : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
               }`}
             >
-              <Play className="w-4 h-4" /> Start
+              <Play className="w-4 h-4" /> 开始
             </button>
         ) : (
             <button
               onClick={onPause}
               className="flex items-center gap-2 px-6 py-2 text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors shadow-md"
             >
-              <Pause className="w-4 h-4" /> Pause
+              <Pause className="w-4 h-4" /> 暂停
             </button>
         )}
 
@@ -118,7 +118,7 @@ const ControlPanel: React.FC<Props> = ({
           onClick={onReset}
           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors ml-auto"
         >
-          <RotateCcw className="w-4 h-4" /> Reset
+          <RotateCcw className="w-4 h-4" /> 重置
         </button>
       </div>
     </div>

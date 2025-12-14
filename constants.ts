@@ -6,17 +6,17 @@ export const MAX_ARRAY_VALUE = 500;
 export const ANIMATION_SPEED_DEFAULT = 50; // ms
 
 export const ALGORITHM_OPTIONS = [
-  { value: AlgorithmType.BUBBLE, label: 'Bubble Sort', complexity: 'O(n²)' },
-  { value: AlgorithmType.SELECTION, label: 'Selection Sort', complexity: 'O(n²)' },
-  { value: AlgorithmType.INSERTION, label: 'Insertion Sort', complexity: 'O(n²)' },
-  { value: AlgorithmType.BINARY_INSERTION, label: 'Binary Insertion Sort', complexity: 'O(n²)' },
-  { value: AlgorithmType.SHELL, label: 'Shell Sort', complexity: 'O(n log n)' },
-  { value: AlgorithmType.COUNTING, label: 'Counting Sort', complexity: 'O(n + k)' },
-  { value: AlgorithmType.RADIX, label: 'Radix Sort', complexity: 'O(nk)' },
-  { value: AlgorithmType.QUICK_REC, label: 'Quick Sort (Recursive)', complexity: 'O(n log n)' },
-  { value: AlgorithmType.QUICK_ITER, label: 'Quick Sort (Iterative)', complexity: 'O(n log n)' },
-  { value: AlgorithmType.MERGE_REC, label: 'Merge Sort (Recursive)', complexity: 'O(n log n)' },
-  { value: AlgorithmType.HEAP, label: 'Heap Sort', complexity: 'O(n log n)' },
+  { value: AlgorithmType.BUBBLE, label: '冒泡排序', complexity: 'O(n²)' },
+  { value: AlgorithmType.SELECTION, label: '选择排序', complexity: 'O(n²)' },
+  { value: AlgorithmType.INSERTION, label: '插入排序', complexity: 'O(n²)' },
+  { value: AlgorithmType.BINARY_INSERTION, label: '折半插入排序', complexity: 'O(n²)' },
+  { value: AlgorithmType.SHELL, label: '希尔排序', complexity: 'O(n log n)' },
+  { value: AlgorithmType.COUNTING, label: '计数排序', complexity: 'O(n + k)' },
+  { value: AlgorithmType.RADIX, label: '基数排序', complexity: 'O(nk)' },
+  { value: AlgorithmType.QUICK_REC, label: '快速排序 (递归)', complexity: 'O(n log n)' },
+  { value: AlgorithmType.QUICK_ITER, label: '快速排序 (非递归)', complexity: 'O(n log n)' },
+  { value: AlgorithmType.MERGE_REC, label: '归并排序 (递归)', complexity: 'O(n log n)' },
+  { value: AlgorithmType.HEAP, label: '堆排序', complexity: 'O(n log n)' },
 ];
 
 export const CHART_COLORS = {

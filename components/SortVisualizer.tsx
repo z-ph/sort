@@ -8,7 +8,7 @@ interface Props {
 }
 
 const SortVisualizer: React.FC<Props> = ({ step, maxValue }) => {
-  if (!step) return <div className="h-64 flex items-center justify-center text-gray-400">No data</div>;
+  if (!step) return <div className="h-64 flex items-center justify-center text-gray-400">无数据</div>;
 
   return (
     <div className="w-full h-full flex items-end justify-center gap-[2px] p-4 bg-white rounded-lg shadow-inner border border-gray-200 overflow-hidden">
@@ -29,7 +29,7 @@ const SortVisualizer: React.FC<Props> = ({ step, maxValue }) => {
               width: `${100 / step.array.length}%`
             }}
             className="transition-all duration-75 rounded-t-sm"
-            title={`Value: ${value}`}
+            title={`数值: ${value}`}
           />
         );
       })}

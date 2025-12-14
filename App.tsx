@@ -2,18 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AlgorithmType, SortStep, SortStats } from './types';
 import { DEFAULT_ARRAY_SIZE, MIN_ARRAY_VALUE, MAX_ARRAY_VALUE, ANIMATION_SPEED_DEFAULT } from './constants';
 import { runBenchmark, AlgorithmGenerators } from './services/sortingAlgorithms';
-import { explainAlgorithm, analyzePerformance } from './services/geminiService';
 import SortVisualizer from './components/SortVisualizer';
 import ControlPanel from './components/ControlPanel';
 import StatsBoard from './components/StatsBoard';
 import FileImporter from './components/FileImporter';
-import { FileText, BrainCircuit, Download } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-
-// NOTE: react-markdown would typically be installed. If not, simple text rendering is used.
-// Since I cannot install packages, I will simulate it or assume it's available. 
-// For this strict output, I will render basic HTML if ReactMarkdown isn't assumed, but the prompt allows standard libraries.
-// I will render raw text in a pre tag for safety if Markdown component fails, but for now assuming clean text.
+import { Download } from 'lucide-react';
 
 const App: React.FC = () => {
   // State
@@ -26,10 +19,6 @@ const App: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<SortStep | null>(null);
   const [stats, setStats] = useState({ comparisons: 0, swaps: 0, time: '0s' });
   const [benchmarkResults, setBenchmarkResults] = useState<SortStats[]>([]);
-  
-  // AI State
-  const [aiAnalysis, setAiAnalysis] = useState<string>("");
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
 
   // Refs
   const generatorRef = useRef<Generator<SortStep> | null>(null);
@@ -60,7 +49,7 @@ const App: React.FC = () => {
       comparing: [],
       swapping: [],
       sorted: [],
-      description: 'Ready to sort'
+      description: '准备排序'
     });
     generatorRef.current = null;
     stepsLogRef.current = [];
@@ -104,8 +93,6 @@ const App: React.FC = () => {
     if (!generatorRef.current) {
       generatorRef.current = AlgorithmGenerators[algorithm](array);
       startTimeRef.current = performance.now();
-      // Run benchmark silently in background for accurate chart data later?
-      // Or just run it on finish. Let's run benchmark separately for clean data.
     }
     setIsPlaying(true);
   };
@@ -145,52 +132,29 @@ const App: React.FC = () => {
 
   // Run Benchmark for all algos to populate chart
   const runBenchmarks = () => {
+    // Generate a larger random dataset (e.g., 2000 items) for accurate CPU benchmarking
+    // The visualizer array is usually too small (50-100) to show O(n) vs O(n^2) differences meaningfully.
+    const BENCHMARK_SIZE = 2000;
+    const benchmarkArray = Array.from({ length: BENCHMARK_SIZE }, () =>
+        Math.floor(Math.random() * (MAX_ARRAY_VALUE - MIN_ARRAY_VALUE + 1) + MIN_ARRAY_VALUE)
+    );
+
     const results: SortStats[] = [];
     const algos = Object.values(AlgorithmType);
     
     algos.forEach(algo => {
         if (typeof algo === 'string') {
-            const res = runBenchmark(algo as AlgorithmType, array);
+            const res = runBenchmark(algo as AlgorithmType, benchmarkArray);
             results.push({
                 algorithm: algo as AlgorithmType,
                 timeMs: parseFloat(res.time.toFixed(2)),
                 comparisons: res.comparisons,
                 swaps: res.swaps,
-                arraySize: array.length
+                arraySize: BENCHMARK_SIZE
             });
         }
     });
     setBenchmarkResults(results);
-  };
-
-  // AI Handlers
-  const handleExplain = async () => {
-    setIsLoadingAi(true);
-    setAiAnalysis("Thinking...");
-    const text = await explainAlgorithm(algorithm, arraySize);
-    setAiAnalysis(text || "No response.");
-    setIsLoadingAi(false);
-  };
-
-  const handleAnalyzePerformance = async () => {
-     if (benchmarkResults.length === 0) {
-         runBenchmarks(); // Run if empty
-     }
-     setIsLoadingAi(true);
-     setAiAnalysis("Analyzing performance data...");
-     // We need to wait for state update if we just ran benchmark, but for simplicity pass results directly if available
-     // Actually, runBenchmarks updates state, so we might miss it here.
-     // Let's force a run locally.
-     const results: SortStats[] = [];
-     Object.values(AlgorithmType).forEach(algo => {
-         const res = runBenchmark(algo as AlgorithmType, array);
-         results.push({ algorithm: algo, timeMs: res.time, comparisons: res.comparisons, swaps: res.swaps, arraySize: array.length });
-     });
-     setBenchmarkResults(results);
-     
-     const text = await analyzePerformance(results);
-     setAiAnalysis(text || "No response.");
-     setIsLoadingAi(false);
   };
 
   // Download Logs
@@ -222,12 +186,12 @@ const App: React.FC = () => {
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
                     S
                 </div>
-                <h1 className="text-xl font-bold text-gray-900">SortMaster Pro</h1>
+                <h1 className="text-xl font-bold text-gray-900">排序算法综合演示系统</h1>
             </div>
             <div className="flex gap-4">
                  <FileImporter onImport={handleImport} />
                  <button onClick={downloadLog} className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600">
-                     <Download className="w-4 h-4" /> Download Report
+                     <Download className="w-4 h-4" /> 下载报告
                  </button>
             </div>
         </div>
@@ -256,49 +220,20 @@ const App: React.FC = () => {
                 />
 
                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="font-semibold text-gray-800 mb-2 border-b pb-2">Status Log</h3>
+                    <h3 className="font-semibold text-gray-800 mb-2 border-b pb-2">状态日志</h3>
                     <div className="h-40 overflow-y-auto text-sm font-mono text-gray-600 bg-gray-50 p-2 rounded">
-                        {currentStep?.description || "Ready..."}
+                        {currentStep?.description || "准备就绪..."}
                         <br/>
                         <span className="text-xs text-gray-400">
-                            Items: {arraySize} | Algo: {algorithm}
+                            元素数: {arraySize} | 算法: {algorithm}
                         </span>
                     </div>
                 </div>
-
-                {/* AI Tutor Button */}
-                 <div className="grid grid-cols-2 gap-2">
-                    <button 
-                        onClick={handleExplain}
-                        className="flex items-center justify-center gap-2 p-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors font-medium text-sm"
-                    >
-                        <BrainCircuit className="w-4 h-4" /> Explain Algo
-                    </button>
-                    <button 
-                        onClick={handleAnalyzePerformance}
-                        className="flex items-center justify-center gap-2 p-3 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors font-medium text-sm"
-                    >
-                        <FileText className="w-4 h-4" /> Analyze Stats
-                    </button>
-                 </div>
             </div>
 
             {/* Right: Visualization Canvas */}
             <div className="lg:col-span-2 h-[500px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
                 <SortVisualizer step={currentStep!} maxValue={MAX_ARRAY_VALUE} />
-                {aiAnalysis && (
-                    <div className="absolute inset-0 bg-white/95 backdrop-blur-sm p-8 overflow-y-auto z-10 transition-opacity">
-                         <div className="flex justify-between items-start mb-4">
-                            <h2 className="text-xl font-bold text-purple-700 flex items-center gap-2">
-                                <BrainCircuit className="w-6 h-6" /> AI Analysis
-                            </h2>
-                            <button onClick={() => setAiAnalysis("")} className="text-gray-400 hover:text-gray-600">Close</button>
-                         </div>
-                         <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
-                             {isLoadingAi ? "Processing with Gemini..." : <ReactMarkdown>{aiAnalysis}</ReactMarkdown>}
-                         </div>
-                    </div>
-                )}
             </div>
         </div>
 
@@ -309,13 +244,16 @@ const App: React.FC = () => {
         />
         
         {/* Trigger Benchmark Button */}
-        <div className="flex justify-center">
+        <div className="flex justify-center flex-col items-center gap-2">
             <button 
                 onClick={runBenchmarks}
                 className="px-6 py-3 bg-slate-800 text-white rounded-full shadow-lg hover:bg-slate-700 hover:shadow-xl transition-all font-medium"
             >
-                Run Comprehensive Benchmark (All Algorithms)
+                运行综合性能测试 (N=2000)
             </button>
+            <p className="text-xs text-gray-500">
+                注意：基准测试使用独立的 2000 个随机数据，不包含动画渲染开销，以确保数据真实准确。
+            </p>
         </div>
 
       </main>

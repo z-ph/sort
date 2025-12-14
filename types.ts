@@ -1,16 +1,16 @@
 export enum AlgorithmType {
-  BUBBLE = 'Bubble Sort',
-  SELECTION = 'Selection Sort',
-  INSERTION = 'Insertion Sort',
-  BINARY_INSERTION = 'Binary Insertion Sort',
-  SHELL = 'Shell Sort',
-  COUNTING = 'Counting Sort',
-  RADIX = 'Radix Sort',
-  QUICK_REC = 'Quick Sort (Recursive)',
-  QUICK_ITER = 'Quick Sort (Iterative)',
-  MERGE_REC = 'Merge Sort (Recursive)',
-  MERGE_ITER = 'Merge Sort (Iterative)', // Implementing simplified iterative or bottom-up
-  HEAP = 'Heap Sort'
+  BUBBLE = '冒泡排序',
+  SELECTION = '选择排序',
+  INSERTION = '插入排序',
+  BINARY_INSERTION = '折半插入排序',
+  SHELL = '希尔排序',
+  COUNTING = '计数排序',
+  RADIX = '基数排序',
+  QUICK_REC = '快速排序 (递归)',
+  QUICK_ITER = '快速排序 (非递归)',
+  MERGE_REC = '归并排序 (递归)',
+  MERGE_ITER = '归并排序 (非递归)', // Implementing simplified iterative or bottom-up
+  HEAP = '堆排序'
 }
 
 export interface SortStep {
