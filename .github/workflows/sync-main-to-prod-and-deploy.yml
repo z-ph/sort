@@ -51,4 +51,3 @@ jobs:
         uses: ./.github/workflows/prod.yml
         with:
           deploy_ref: prod
-        secrets: inherit
