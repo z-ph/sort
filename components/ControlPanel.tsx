@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, RotateCcw, Settings, StepForward } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, StepForward, AlertCircle } from 'lucide-react';
 import { AlgorithmType } from '../types';
 import { ALGORITHM_OPTIONS } from '../constants';
 
@@ -36,16 +36,14 @@ const ControlPanel: React.FC<Props> = ({
   isFinished,
   isSorting
 }) => {
-  // Handler for direct speed input (1-200)
   const handleSpeedInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = parseInt(e.target.value);
     if (isNaN(val)) val = 1;
     if (val < 1) val = 1;
     if (val > 200) val = 200;
-    setSpeed(201 - val); // Convert back to delay
+    setSpeed(201 - val);
   };
 
-  // Handler for direct size input
   const handleSizeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = parseInt(e.target.value);
     if (isNaN(val)) val = 10;
@@ -57,20 +55,25 @@ const ControlPanel: React.FC<Props> = ({
   return (
     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4">
       <div className="flex flex-col gap-4">
-        {/* Header Label */}
-        <div className="flex items-center gap-2 text-gray-700 font-semibold">
-          <Settings className="w-5 h-5 text-gray-500" />
-          <span>设置</span>
+        <div className="flex items-center justify-between gap-2 text-gray-700 font-semibold">
+          <div className="flex items-center gap-2">
+            <Settings className="w-5 h-5 text-gray-500" />
+            <span>设置</span>
+          </div>
+          {isSorting && !isFinished && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 text-amber-600 rounded-md text-xs border border-amber-100 animate-pulse">
+              <AlertCircle size={14} />
+              <span>提示：切换算法前请先重置</span>
+            </div>
+          )}
         </div>
 
-        {/* Controls Container - Responsive Grid/Flex */}
         <div className="flex flex-wrap gap-3 items-center">
-          {/* Algorithm Selector */}
           <select
             value={algorithm}
             onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
-            disabled={isSorting} 
-            className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-auto min-w-[160px] disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            disabled={isSorting && !isFinished} 
+            className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-auto min-w-[160px] disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed cursor-pointer"
           >
             {ALGORITHM_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -79,7 +82,6 @@ const ControlPanel: React.FC<Props> = ({
             ))}
           </select>
 
-          {/* Size Control */}
           <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100 flex-grow sm:flex-grow-0">
             <span className="text-sm text-gray-600 whitespace-nowrap">数量:</span>
             <input 
@@ -103,7 +105,6 @@ const ControlPanel: React.FC<Props> = ({
             />
           </div>
 
-          {/* Speed Control */}
           <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100 flex-grow sm:flex-grow-0">
             <span className="text-sm text-gray-600 whitespace-nowrap">速度:</span>
              <input 
@@ -118,7 +119,7 @@ const ControlPanel: React.FC<Props> = ({
               type="range"
               min="1"
               max="200"
-              value={201 - speed} // Invert so right is faster
+              value={201 - speed}
               onChange={(e) => setSpeed(201 - Number(e.target.value))}
               className="w-24 sm:w-32 lg:w-40 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
             />
@@ -156,7 +157,6 @@ const ControlPanel: React.FC<Props> = ({
             </button>
         )}
 
-        {/* Next Step Button */}
         <button
           onClick={onNextStep}
           disabled={isPlaying || isFinished}
@@ -165,16 +165,15 @@ const ControlPanel: React.FC<Props> = ({
               ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
               : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-blue-600'
           }`}
-          title="执行下一步"
         >
           <StepForward className="w-4 h-4" /> 单步
         </button>
 
         <button
           onClick={onReset}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors ml-auto whitespace-nowrap"
+          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-red-600 transition-colors ml-auto whitespace-nowrap font-medium"
         >
-          <RotateCcw className="w-4 h-4" /> 重置
+          <RotateCcw className="w-4 h-4" /> 重置系统
         </button>
       </div>
     </div>

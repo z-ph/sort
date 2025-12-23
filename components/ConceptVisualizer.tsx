@@ -53,7 +53,6 @@ const ConceptVisualizer: React.FC<Props> = ({
            targetElement = document.getElementById(`heap-node-${targetIdx}`);
        }
     }
-    // Simple list algorithms scroll support
     else if (step) {
         const targetIdx = step.swapping.length > 0 ? step.swapping[0] : (step.comparing.length > 0 ? step.comparing[0] : -1);
         if (targetIdx !== -1) {
@@ -106,13 +105,8 @@ const ConceptVisualizer: React.FC<Props> = ({
 
   if (!step) return null;
 
-  // --- Renderers ---
-
-  // 1. Simple List Renderers (Bubble, Selection, Insertion)
   const renderSimpleList = () => {
     const { array, comparing, swapping, sorted } = step;
-    
-    // Scale for global view
     const contentStyle = isGlobalView ? { transform: 'scale(0.8)', transformOrigin: 'top center', width: '125%' } : {};
 
     return (
@@ -156,7 +150,6 @@ const ConceptVisualizer: React.FC<Props> = ({
                 })}
             </div>
             
-            {/* Logic Legend & Info */}
             <div className="mt-6 p-3 bg-blue-50/50 rounded-lg border border-blue-100 max-w-2xl w-full text-xs text-gray-600">
                 <p className="font-semibold text-blue-700 mb-1">执行逻辑:</p>
                 {algorithm === AlgorithmType.BUBBLE && (
@@ -173,11 +166,8 @@ const ConceptVisualizer: React.FC<Props> = ({
     );
   };
 
-  // 2. Counting Sort / Radix Sort: Show Buckets
   const renderCountingSort = () => {
-    if (!step.aux?.counts) {
-         return <div className="text-gray-400 text-sm p-4">等待数据初始化...</div>;
-    }
+    if (!step.aux?.counts) return <div className="text-gray-400 text-sm p-4">等待数据初始化...</div>;
     const counts = step.aux.counts;
     const contentStyle = isGlobalView ? { transform: 'scale(0.6)', transformOrigin: 'top center', width: '166%' } : {};
 
@@ -206,7 +196,6 @@ const ConceptVisualizer: React.FC<Props> = ({
     );
   };
 
-  // 3. Heap Sort: Show Binary Tree
   const renderHeapSort = () => {
       const arr = step.array;
       const depth = Math.floor(Math.log2(Math.max(1, arr.length)));
@@ -256,14 +245,14 @@ const ConceptVisualizer: React.FC<Props> = ({
       );
   };
 
-  // 4. Merge/Quick Sort: Show Split/Range View
   const renderRangeView = () => {
       if (!step.aux?.range) return <div className="text-gray-400 text-sm p-4">等待分治操作...</div>;
       const { start, end } = step.aux.range;
       const subset = step.array.slice(start, end + 1);
       const mergeBuffer = step.aux.mergeBuffer;
       let splitIdx = -1;
-      if (algorithm.includes('归并')) splitIdx = Math.floor((end - start) / 2);
+      const isMergeSort = algorithm.includes('归并');
+      if (isMergeSort) splitIdx = Math.floor((end - start) / 2);
       else if (step.aux.pivot !== undefined) splitIdx = step.aux.pivot - start;
 
       const contentStyle = isGlobalView ? { transform: 'scale(0.8)', transformOrigin: 'top center', width: '125%' } : {};
@@ -277,8 +266,13 @@ const ConceptVisualizer: React.FC<Props> = ({
                         const isComparing = step.comparing.includes(actualIdx);
                         const isSwapping = step.swapping.includes(actualIdx);
                         const isPivot = algorithm.includes('快速') && step.aux?.pivot === actualIdx;
-                        const isPtrI = step.aux?.pointers?.i === actualIdx;
-                        const isPtrJ = step.aux?.pointers?.j === actualIdx;
+                        
+                        const ptrI = step.aux?.pointers?.i;
+                        const ptrJ = step.aux?.pointers?.j;
+                        const midIdx = start + splitIdx;
+                        
+                        const isPtrI = ptrI === actualIdx && (!isMergeSort || ptrI <= midIdx);
+                        const isPtrJ = ptrJ === actualIdx && (!isMergeSort || ptrJ > midIdx);
                         
                         let bgColor = 'bg-gray-100';
                         let borderColor = 'border-gray-200';
@@ -288,7 +282,7 @@ const ConceptVisualizer: React.FC<Props> = ({
 
                         return (
                             <React.Fragment key={idx}>
-                                {algorithm.includes('归并') && idx === splitIdx + 1 && <div className="w-px h-8 bg-blue-400 mx-2 border-dashed border-l border-blue-400"></div>}
+                                {isMergeSort && idx === splitIdx + 1 && <div className="w-px h-8 bg-blue-400 mx-2 border-dashed border-l border-blue-400"></div>}
                                 <div className="flex flex-col items-center relative">
                                     <div className={`w-10 h-10 flex flex-col items-center justify-center border-2 rounded ${bgColor} ${borderColor} transition-colors z-10`}>
                                         <span className="font-bold text-sm">{val}</span>
@@ -305,7 +299,7 @@ const ConceptVisualizer: React.FC<Props> = ({
                         );
                     })}
                 </div>
-                {algorithm.includes('归并') && mergeBuffer && (
+                {isMergeSort && mergeBuffer && (
                     <div className="mt-4 p-3 bg-indigo-50 rounded-lg border border-indigo-100 flex flex-col items-center gap-2">
                         <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">辅助数组 (Temp Array)</span>
                         <div className="flex gap-1 flex-wrap justify-center min-h-[36px]">
@@ -319,7 +313,6 @@ const ConceptVisualizer: React.FC<Props> = ({
       );
   };
 
-  // 5. Shell Sort: Grid View
   const renderShellSort = () => {
       const gap = step.aux?.gap;
       if (!gap) return <div className="text-gray-400 text-sm p-4">等待增量分组...</div>;
@@ -351,7 +344,6 @@ const ConceptVisualizer: React.FC<Props> = ({
       );
   };
 
-  // Dispatcher
   let content = null;
   if (algorithm === AlgorithmType.COUNTING || algorithm === AlgorithmType.RADIX) {
       content = renderCountingSort();
