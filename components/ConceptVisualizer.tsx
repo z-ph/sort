@@ -108,14 +108,14 @@ const ConceptVisualizer: React.FC<Props> = ({
 
   if (!step) return null;
 
-  // --- 希尔排序矩阵视图 ---
+  // --- 希尔排序矩阵视图 (固定高度) ---
   const renderShellView = () => {
     const { array, comparing, swapping, aux } = step;
     const gap = aux?.gap || 1;
     const activeCols = new Set([...comparing, ...swapping].map(idx => idx % gap));
 
     return (
-      <div className="flex flex-col h-full w-full">
+      <div className="flex flex-col h-[400px] w-full">
         <div className="flex items-center justify-between px-5 py-1.5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 z-20 shadow-sm">
            <div className="flex items-center gap-2">
               <Grid3X3 size={12} className="text-indigo-500" />
@@ -183,6 +183,7 @@ const ConceptVisualizer: React.FC<Props> = ({
     );
   };
 
+  // --- 计数排序视图 (固定高度) ---
   const renderCountingSort = () => {
     // 如果存在 buckets 数据（基数排序），则使用专门的链表视图
     if ((algorithm === AlgorithmType.RADIX || algorithm === AlgorithmType.RADIX_REC) && step.aux?.buckets) return renderRadixLinkedList();
@@ -194,7 +195,7 @@ const ConceptVisualizer: React.FC<Props> = ({
     const { bucketIndex } = step.aux;
     
     return (
-      <div className="flex flex-col h-full w-full bg-slate-50/50 dark:bg-slate-950/20 overflow-hidden">
+      <div className="flex flex-col h-[400px] w-full bg-slate-50/50 dark:bg-slate-950/20 overflow-hidden">
         {renderTopArrayRow()}
         
         {/* 底部桶区域：占据剩余空间，垂直滚动 */}
@@ -218,12 +219,12 @@ const ConceptVisualizer: React.FC<Props> = ({
     );
   };
 
-  // 专门用于基数排序的链表视图
+  // --- 基数排序链表视图 (固定高度) ---
   const renderRadixLinkedList = () => {
       const { bucketIndex, buckets, exp } = step.aux!;
 
       return (
-          <div className="flex flex-col h-full w-full bg-slate-50/50 dark:bg-slate-950/20 overflow-hidden">
+          <div className="flex flex-col h-[400px] w-full bg-slate-50/50 dark:bg-slate-950/20 overflow-hidden">
               {renderTopArrayRow()}
 
               <div ref={containerRef} className="flex-1 overflow-y-auto p-6 relative">
@@ -324,12 +325,13 @@ const ConceptVisualizer: React.FC<Props> = ({
       );
   };
 
+  // --- 简单列表视图 (自适应高度) ---
   const renderSimpleList = () => {
     // 检查是否是计数排序的 "寻找最大值" 阶段
     const isCountingScan = algorithm === AlgorithmType.COUNTING && step.aux?.maxValue !== undefined;
     
     return (
-        <div className="flex flex-col h-full w-full">
+        <div className="flex flex-col h-auto w-full"> {/* Changed from h-full to h-auto */}
             {isCountingScan && (
                 <div className="shrink-0 px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm z-10">
                     <div className="flex items-center gap-2">
@@ -343,7 +345,8 @@ const ConceptVisualizer: React.FC<Props> = ({
                 </div>
             )}
             
-            <div ref={containerRef} className="flex gap-2 flex-wrap justify-center overflow-auto w-full p-8 max-h-full">
+            {/* Added max-h and min-h for adaptability */}
+            <div ref={containerRef} className="flex gap-2 flex-wrap justify-center overflow-auto w-full p-8 max-h-[400px] min-h-[160px]">
                 {step.array.map((val, idx) => {
                     const isComp = step.comparing.includes(idx);
                     const isSwap = step.swapping.includes(idx);
@@ -382,6 +385,7 @@ const ConceptVisualizer: React.FC<Props> = ({
     );
   };
 
+  // --- 范围视图 (归并/快排) (固定高度) ---
   const renderRangeView = () => {
       // 修复：如果 aux.range 尚未初始化（初始状态），则回退到简单列表视图
       if (!step.aux?.range) return renderSimpleList();
@@ -392,7 +396,7 @@ const ConceptVisualizer: React.FC<Props> = ({
       const mergeBuffer = step.aux.mergeBuffer;
 
       return (
-          <div className="flex flex-col items-center w-full h-full">
+          <div className="flex flex-col items-center w-full h-[400px]"> {/* Fixed height */}
               <div className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center border-b border-slate-100 dark:border-slate-800 w-full bg-slate-50/50 dark:bg-slate-900/50 shrink-0">当前激活区间: [{start} - {end}]</div>
               
               <div ref={containerRef} className="flex-1 w-full overflow-auto py-8 px-4">
@@ -452,11 +456,12 @@ const ConceptVisualizer: React.FC<Props> = ({
       );
   };
 
+  // --- 堆排序视图 (固定高度) ---
   const renderHeapView = () => {
     const { comparing, swapping, aux, sorted } = step;
     const heapSize = aux?.heapSize ?? step.array.length;
     return (
-        <div ref={containerRef} className="w-full h-full overflow-auto bg-white dark:bg-slate-950">
+        <div ref={containerRef} className="w-full h-[400px] overflow-auto bg-white dark:bg-slate-950"> {/* Fixed height */}
             <div className="relative" style={{ width: canvasWidth, height: canvasHeight }}>
                 <svg className="absolute inset-0 pointer-events-none" width={canvasWidth} height={canvasHeight}>
                     {heapNodes.map((node) => {
@@ -494,7 +499,7 @@ const ConceptVisualizer: React.FC<Props> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative z-20 flex flex-col min-h-[480px]">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative z-20 flex flex-col"> {/* Removed min-h-[480px] */}
         <div className="bg-slate-50 dark:bg-slate-800/50 px-5 py-3 border-b border-slate-200 dark:border-slate-800 font-black text-slate-700 dark:text-slate-200 text-xs flex items-center justify-between uppercase tracking-wider rounded-t-2xl shrink-0">
             <div className="flex items-center gap-2">
                 <ScanEye size={16} className="text-indigo-500" />
@@ -543,7 +548,7 @@ const ConceptVisualizer: React.FC<Props> = ({
                  </button>
             </div>
         </div>
-        <div className="flex-1 bg-slate-50/30 dark:bg-slate-950/20 overflow-hidden rounded-b-2xl">
+        <div className="flex-1 bg-slate-50/30 dark:bg-slate-950/20 overflow-hidden rounded-b-2xl min-h-[120px]"> {/* Added min-h-[120px] for empty state safety */}
             {algorithm === AlgorithmType.HEAP ? renderHeapView() : 
              (algorithm === AlgorithmType.COUNTING || algorithm === AlgorithmType.RADIX || algorithm === AlgorithmType.RADIX_REC) ? renderCountingSort() :
              algorithm === AlgorithmType.SHELL ? renderShellView() :
