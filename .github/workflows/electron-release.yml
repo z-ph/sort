@@ -1,16 +1,7 @@
 name: Electron Release
 
 on:
-  # 推���到 prod 分支时自动触发
-  push:
-    branches:
-      - prod
-      - release/major
-      - release/minor
-    tags:
-      - 'v*'
-
-  # 手动触发（可在 GitHub Actions 页面操作）
+  # 仅手动触发（可在 GitHub Actions 页面操作）
   workflow_dispatch:
     inputs:
       version_type:
@@ -115,68 +106,137 @@ jobs:
           echo "- **Version**: $NEW_VERSION" >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: Generate Release Notes
-        id: release_notes
+      - name: Get previous tag
+        id: get_tag
         run: |
           # 获取上一个 tag
-          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          set +e
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
+          EXIT_CODE=$?
+          set -e
 
-          # 生成 changelog（按 conventional commits 分类）
-          if [ -n "$PREV_TAG" ]; then
-            # 提取各类别的提交
-            ALL_COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --reverse)
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+            echo "✅ Found previous tag: $PREV_TAG"
+          else
+            echo "tag=" >> $GITHUB_OUTPUT
+            echo "⚠️  No previous tag found (first release)"
+          fi
+        shell: bash
 
-            # 按类型分类
-            FEAT_COMMITS=$(echo "$ALL_COMMITS" | grep "^- feat" | head -20)
-            FIX_COMMITS=$(echo "$ALL_COMMITS" | grep "^- fix" | head -20)
-            PERF_COMMITS=$(echo "$ALL_COMMITS" | grep "^- perf" | head -10)
-            REFACTOR_COMMITS=$(echo "$ALL_COMMITS" | grep "^- refactor" | head -10)
-            DOCS_COMMITS=$(echo "$ALL_COMMITS" | grep "^- docs" | head -10)
-            CHORE_COMMITS=$(echo "$ALL_COMMITS" | grep "^- chore" | head -10)
-            OTHER_COMMITS=$(echo "$ALL_COMMITS" | grep -v "^- \(feat\|fix\|perf\|refactor\|docs\|chore\)" | head -10)
+      - name: Generate commit log
+        id: commit_log
+        if: steps.get_tag.outputs.tag != ''
+        run: |
+          PREV_TAG="${{ steps.get_tag.outputs.tag }}"
+          echo "📝 Generating commit log from $PREV_TAG to HEAD..."
 
-            # 构建 release notes
-            cat > ${{ github.workspace }}/release-notes.md << EOF
-          ## 📦 版本 ${{ env.new_version }}
+          # 获取所有提交
+          ALL_COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --reverse)
 
-          **发布时间**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          # 保存到文件
+          echo "$ALL_COMMITS" > ${{ github.workspace }}/all-commits.txt
+
+          TOTAL_COUNT=$(echo "$ALL_COMMITS" | wc -l)
+          echo "count=$TOTAL_COUNT" >> $GITHUB_OUTPUT
+          echo "✅ Found $TOTAL_COUNT commits"
+        shell: bash
+
+      - name: Categorize commits
+        if: steps.get_tag.outputs.tag != ''
+        run: |
+          # 读取提交日志
+          ALL_COMMITS=$(cat ${{ github.workspace }}/all-commits.txt)
+
+          # 按类型分类
+          echo "🔍 Categorizing commits..."
+
+          FEAT_COMMITS=$(echo "$ALL_COMMITS" | grep "^- feat" | head -20 || true)
+          FIX_COMMITS=$(echo "$ALL_COMMITS" | grep "^- fix" | head -20 || true)
+          PERF_COMMITS=$(echo "$ALL_COMMITS" | grep "^- perf" | head -10 || true)
+          REFACTOR_COMMITS=$(echo "$ALL_COMMITS" | grep "^- refactor" | head -10 || true)
+          DOCS_COMMITS=$(echo "$ALL_COMMITS" | grep "^- docs" | head -10 || true)
+          CHORE_COMMITS=$(echo "$ALL_COMMITS" | grep "^- chore" | head -10 || true)
+          OTHER_COMMITS=$(echo "$ALL_COMMITS" | grep -v "^- \(feat\|fix\|perf\|refactor\|docs\|chore\)" | head -10 || true)
+
+          # 保存分类结果
+          echo "$FEAT_COMMITS" > ${{ github.workspace }}/feat-commits.txt
+          echo "$FIX_COMMITS" > ${{ github.workspace }}/fix-commits.txt
+          echo "$PERF_COMMITS" > ${{ github.workspace }}/perf-commits.txt
+          echo "$REFACTOR_COMMITS" > ${{ github.workspace }}/refactor-commits.txt
+          echo "$DOCS_COMMITS" > ${{ github.workspace }}/docs-commits.txt
+          echo "$CHORE_COMMITS" > ${{ github.workspace }}/chore-commits.txt
+          echo "$OTHER_COMMITS" > ${{ github.workspace }}/other-commits.txt
+
+          # 输出统计
+          echo "✅ Features: $(echo "$FEAT_COMMITS" | grep -c "^" || echo 0)"
+          echo "✅ Fixes: $(echo "$FIX_COMMITS" | grep -c "^" || echo 0)"
+        shell: bash
+
+      - name: Build release notes (with history)
+        if: steps.get_tag.outputs.tag != ''
+        run: |
+          # 读取分类结果
+          FEAT_COMMITS=$(cat ${{ github.workspace }}/feat-commits.txt)
+          FIX_COMMITS=$(cat ${{ github.workspace }}/fix-commits.txt)
+          PERF_COMMITS=$(cat ${{ github.workspace }}/perf-commits.txt)
+          REFACTOR_COMMITS=$(cat ${{ github.workspace }}/refactor-commits.txt)
+          DOCS_COMMITS=$(cat ${{ github.workspace }}/docs-commits.txt)
+          CHORE_COMMITS=$(cat ${{ github.workspace }}/chore-commits.txt)
+          OTHER_COMMITS=$(cat ${{ github.workspace }}/other-commits.txt)
+
+          # 构建 release notes
+          cat > ${{ github.workspace }}/release-notes.md << 'EOF'
+          ## 📦 版本 NEW_VERSION_PLACEHOLDER
+
+          **发布时间**: DATE_PLACEHOLDER
 
           ### ✨ 新功能
-          ${FEAT_COMMITS:-无}
+          FEAT_PLACEHOLDER
 
           ### 🐛 Bug 修复
-          ${FIX_COMMITS:-无}
+          FIX_PLACEHOLDER
 
           ### ⚡ 性能优化
-          ${PERF_COMMITS:-无}
+          PERF_PLACEHOLDER
 
           ### ♻️ 代码重构
-          ${REFACTOR_COMMITS:-无}
+          REFACTOR_PLACEHOLDER
 
           ### 📝 文档更新
-          ${DOCS_COMMITS:-无}
+          DOCS_PLACEHOLDER
 
           ### 🔧 构建/工具
-          ${CHORE_COMMITS:-无}
+          CHORE_PLACEHOLDER
 
           ### 📦 其他变更
-          ${OTHER_COMMITS:-无}
+          OTHER_PLACEHOLDER
 
           ### 📥 下载说明
           - **Windows**: 下载 `.exe` 安装程序，运行安装
           EOF
 
-            # 输出到 summary（简化版）
-            TOTAL_COMMITS=$(echo "$ALL_COMMITS" | wc -l)
-            echo "### 📝 Release Notes" >> $GITHUB_STEP_SUMMARY
-            echo "- **Total Commits**: $TOTAL_COMMITS" >> $GITHUB_STEP_SUMMARY
-            echo "- **Features**: $(echo "$FEAT_COMMITS" | grep -c "^" || echo 0)" >> $GITHUB_STEP_SUMMARY
-            echo "- **Fixes**: $(echo "$FIX_COMMITS" | grep -c "^" || echo 0)" >> $GITHUB_STEP_SUMMARY
-          else
-            cat > ${{ github.workspace }}/release-notes.md << EOF
-          ## 📦 版本 ${{ env.new_version }}
+          # 替换占位符
+          sed -i "s/NEW_VERSION_PLACEHOLDER/${{ env.new_version }}/" ${{ github.workspace }}/release-notes.md
+          sed -i "s/DATE_PLACEHOLDER/$(date -u +"%Y-%m-%d %H:%M:%S UTC")/" ${{ github.workspace }}/release-notes.md
+          sed -i "s|FEAT_PLACEHOLDER|${FEAT_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
+          sed -i "s|FIX_PLACEHOLDER|${FIX_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
+          sed -i "s|PERF_PLACEHOLDER|${PERF_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
+          sed -i "s|REFACTOR_PLACEHOLDER|${REFACTOR_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
+          sed -i "s|DOCS_PLACEHOLDER|${DOCS_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
+          sed -i "s|CHORE_PLACEHOLDER|${CHORE_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
+          sed -i "s|OTHER_PLACEHOLDER|${OTHER_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
 
-          **发布时间**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          echo "✅ Release notes created"
+        shell: bash
+
+      - name: Build release notes (first release)
+        if: steps.get_tag.outputs.tag == ''
+        run: |
+          cat > ${{ github.workspace }}/release-notes.md << 'EOF'
+          ## 📦 版本 NEW_VERSION_PLACEHOLDER
+
+          **发布时间**: DATE_PLACEHOLDER
 
           ### 🎉 首次发布
           这是排序算法综合演示系统的首个版本！
@@ -185,8 +245,29 @@ jobs:
           - **Windows**: 下载 `.exe` 安装程序，运行安装
           EOF
 
-            echo "### 📝 Release Notes" >> $GITHUB_STEP_SUMMARY
-            echo "🎉 首次发布" >> $GITHUB_STEP_SUMMARY
+          # 替换占位符
+          sed -i "s/NEW_VERSION_PLACEHOLDER/${{ env.new_version }}/" ${{ github.workspace }}/release-notes.md
+          sed -i "s/DATE_PLACEHOLDER/$(date -u +"%Y-%m-%d %H:%M:%S UTC")/" ${{ github.workspace }}/release-notes.md
+
+          echo "✅ First release notes created"
+        shell: bash
+
+      - name: Generate release summary
+        run: |
+          echo "### 📝 Release Notes Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -n "${{ steps.get_tag.outputs.tag }}" ]; then
+            TOTAL_COUNT=${{ steps.commit_log.outputs.count }}
+            FEAT_COUNT=$(cat ${{ github.workspace }}/feat-commits.txt | grep -c "^" || echo 0)
+            FIX_COUNT=$(cat ${{ github.workspace }}/fix-commits.txt | grep -c "^" || echo 0)
+
+            echo "- **Previous Tag**: ${{ steps.get_tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Commits**: $TOTAL_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Features**: $FEAT_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Fixes**: $FIX_COUNT" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🎉 **First Release**" >> $GITHUB_STEP_SUMMARY
           fi
         shell: bash
 
@@ -203,7 +284,7 @@ jobs:
           git add package.json
           git commit -m "chore(release): bump version to ${{ env.new_version }}"
 
-          # 推送提交
+          # 推送提��
           git push origin HEAD:${{ github.ref_name }}
         shell: bash
 
@@ -328,14 +409,26 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # 先拉取远程 tags
+          git fetch origin +refs/tags/*:refs/tags/*
+
+          TAG_NAME="v${{ needs.version.outputs.version }}"
+
+          # 如果 tag 已存在，先删除
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists, deleting..."
+            git tag -d "$TAG_NAME"
+            git push origin ":refs/tags/$TAG_NAME" || true
+          fi
+
           # 创建 tag
-          git tag "v${{ needs.version.outputs.version }}"
+          git tag "$TAG_NAME"
 
           # 推送 tag
-          git push origin "v${{ needs.version.outputs.version }}"
+          git push origin "$TAG_NAME"
 
           echo "### 🏷️  Tag Created" >> $GITHUB_STEP_SUMMARY
-          echo "Tag: v${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Tag: $TAG_NAME" >> $GITHUB_STEP_SUMMARY
         shell: bash
 
       - name: Create GitHub Release
