@@ -8,7 +8,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:build": "cross-env BUILD_TARGET=electron pnpm run build && electron-builder --mac --win"
+    "electron:build": "cross-env BUILD_TARGET=electron pnpm run build && electron-builder --mac --win --linux",
+    "version:bump": "node scripts/bump-version.js",
+    "version:major": "node scripts/bump-version.js major",
+    "version:minor": "node scripts/bump-version.js minor",
+    "version:patch": "node scripts/bump-version.js patch"
   },
   "dependencies": {
     "lucide-react": "^0.561.0",
@@ -50,13 +54,23 @@
       "artifactName": "sort-visualizer-${version}-${arch}.${ext}",
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64",
             "ia32"
           ]
         }
       ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "category": "Education",
+      "artifactName": "sort-visualizer-${version}-${arch}.${ext}",
+      "synopsis": "排序算法综合演示系统"
     }
   }
 }
