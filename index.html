@@ -11,33 +11,106 @@
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
       body {
         font-family: 'Inter', sans-serif;
         margin: 0;
         padding: 0;
       }
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+      
+      /* 核心：确保 Tooltip 具备极高的层级，且不受父级 overflow 影响 */
+      [data-tooltip], [data-tooltip-bottom] {
+        position: relative;
+        cursor: pointer;
+        /* 不要在触发元素上设置过高的 z-index，否则会压盖 Tooltip 本身 */
       }
-      ::-webkit-scrollbar-track {
-        background: transparent;
+
+      /* 默认向上弹出的 Tooltip */
+      [data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 140%;
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        background: #0f172a; 
+        color: #f8fafc;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        z-index: 9999999 !important;
+        box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        border: 1px solid rgba(255,255,255,0.2);
       }
-      .dark ::-webkit-scrollbar-track {
-        background: transparent;
+
+      /* 向下弹出的 Tooltip */
+      [data-tooltip-bottom]::after {
+        content: attr(data-tooltip-bottom);
+        position: absolute;
+        top: 140%;
+        left: 50%;
+        transform: translateX(-50%) translateY(-10px);
+        background: #0f172a;
+        color: #f8fafc;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        z-index: 9999999 !important;
+        box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        border: 1px solid rgba(255,255,255,0.2);
       }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
+
+      [data-tooltip]:hover::after,
+      [data-tooltip-bottom]:hover::after {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
       }
-      .dark ::-webkit-scrollbar-thumb {
-        background: #475569;
+
+      /* 绘制小三角箭头 */
+      [data-tooltip]::before {
+        content: '';
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: #0f172a;
+        opacity: 0;
+        visibility: hidden;
+        z-index: 9999999 !important;
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+      [data-tooltip-bottom]::before {
+        content: '';
+        position: absolute;
+        top: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-bottom-color: #0f172a;
+        opacity: 0;
+        visibility: hidden;
+        z-index: 9999999 !important;
       }
+      [data-tooltip]:hover::before,
+      [data-tooltip-bottom]:hover::before { opacity: 1; visibility: visible; }
+
+      /* 滚动条美化 */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+      .dark ::-webkit-scrollbar-thumb { background: #334155; }
     </style>
   <script type="importmap">
 {
