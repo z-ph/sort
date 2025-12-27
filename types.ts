@@ -1,3 +1,4 @@
+
 export enum AlgorithmType {
   BUBBLE = '冒泡排序',
   SELECTION = '选择排序',
@@ -5,7 +6,8 @@ export enum AlgorithmType {
   BINARY_INSERTION = '折半插入排序',
   SHELL = '希尔排序',
   COUNTING = '计数排序',
-  RADIX = '基数排序',
+  RADIX = '基数排序', // Iterative (LSD)
+  RADIX_REC = '基数排序 (递归)', // Recursive (MSD)
   QUICK_REC = '快速排序 (递归)',
   QUICK_ITER = '快速排序 (非递归)',
   MERGE_REC = '归并排序 (递归)',
@@ -25,11 +27,16 @@ export interface SortStep {
     pivot?: number; // For quick sort pivot
     heapSize?: number; // For heap sort boundary
     val?: number; // For counting sort (current value processing)
+    maxValue?: number; // For counting sort (tracking max value)
     bucketIndex?: number; // For counting/radix sort (current bucket)
     counts?: number[]; // Snapshot of counts array (optional)
+    buckets?: number[][]; // Snapshot of actual bucket contents (for Radix Sort Linked List view)
     mergeBuffer?: number[]; // Snapshot of temp array for merge sort
     pointers?: { [label: string]: number }; // Named pointers like { i: 2, j: 5 }
     gap?: number; // For Shell Sort gap
+    exp?: number; // For Radix Sort (current exponent/digit place: 1, 10, 100...)
+    minIdx?: number; // For Selection Sort (current minimum candidate)
+    keyIdx?: number; // For Insertion Sort (current key being inserted)
   };
 }
 

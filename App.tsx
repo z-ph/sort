@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AlgorithmType, SortStep, SortStats } from './types';
 import { DEFAULT_ARRAY_SIZE, MIN_ARRAY_VALUE, MAX_ARRAY_VALUE, ANIMATION_SPEED_DEFAULT, ALGORITHM_OPTIONS } from './constants';
@@ -13,6 +14,7 @@ export const getAlgorithmMetrics = (type: AlgorithmType) => {
     case AlgorithmType.COUNTING:
       return { label1: '数据扫描', label2: '计数/写回' };
     case AlgorithmType.RADIX:
+    case AlgorithmType.RADIX_REC:
       return { label1: '位次扫描', label2: '分配/收集' };
     case AlgorithmType.INSERTION:
     case AlgorithmType.BINARY_INSERTION:
@@ -74,6 +76,11 @@ const App: React.FC = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   }, []);
+
+  // 关键修复：当切换算法时，自动重置当前演示状态
+  useEffect(() => {
+    resetSorter(array);
+  }, [algorithm, resetSorter, array]);
 
   const generateArray = useCallback((size: number) => {
     const newArray = Array.from({ length: size }, () =>
@@ -233,7 +240,7 @@ const App: React.FC = () => {
                       <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && handleImport(e.target.files[0])} className="hidden" accept=".json,.csv,.txt" />
                       
                       <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                        <span className="text-[10px] font-black text-slate-400 uppercase">格式示例:</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase">导入数据格式示例:</span>
                         <button data-tooltip-bottom="下载标准 JSON 格式示例" onClick={() => downloadSample('json')} className="text-[10px] font-bold text-slate-500 hover:text-indigo-600 transition-colors px-1">JSON</button>
                         <button data-tooltip-bottom="下载标准 CSV 格式示例" onClick={() => downloadSample('csv')} className="text-[10px] font-bold text-slate-500 hover:text-indigo-600 transition-colors px-1">CSV</button>
                         <button data-tooltip-bottom="下载标准 TXT 格式示例" onClick={() => downloadSample('txt')} className="text-[10px] font-bold text-slate-500 hover:text-indigo-600 transition-colors px-1">TXT</button>
@@ -262,8 +269,7 @@ const App: React.FC = () => {
                       data-tooltip="切换不同的排序算法"
                       value={algorithm}
                       onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
-                      disabled={isSorting && !isFinished} 
-                      className="flex-1 max-w-[200px] px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none font-black transition-all shadow-sm"
+                      className="flex-1 max-w-[200px] px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none font-black transition-all shadow-sm cursor-pointer"
                     >
                       {ALGORITHM_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>

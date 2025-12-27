@@ -68,7 +68,7 @@ const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm, theme = 'l
             if (aux?.heapSize !== undefined && i >= aux.heapSize) {
                 fillStyle = CHART_COLORS.sorted;
             }
-        } else if (algorithm === AlgorithmType.COUNTING || algorithm === AlgorithmType.RADIX) {
+        } else if (algorithm === AlgorithmType.COUNTING || algorithm === AlgorithmType.RADIX || algorithm === AlgorithmType.RADIX_REC) {
             if (aux?.val === value && comparingSet.has(i)) fillStyle = '#f59e0b';
             if (aux?.val === value && swappingSet.has(i)) fillStyle = '#22c55e';
         }
