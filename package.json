@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:build": "cross-env BUILD_TARGET=electron pnpm run build && electron-builder --mac --win --linux",
+    "electron:build": "cross-env BUILD_TARGET=electron pnpm run build && electron-builder --win",
     "version:bump": "node scripts/bump-version.js",
     "version:major": "node scripts/bump-version.js major",
     "version:minor": "node scripts/bump-version.js minor",
