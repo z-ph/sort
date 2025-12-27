@@ -283,7 +283,7 @@ jobs:
             libxss1
 
       - name: Build
-        run: cross-env BUILD_TARGET=electron pnpm run build
+        run: npx cross-env BUILD_TARGET=electron pnpm run build
         shell: bash
 
       - name: Package for macOS
