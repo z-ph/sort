@@ -1,0 +1,478 @@
+name: Electron Release
+
+on:
+  # 推送到 prod 分支时自动触发
+  push:
+    branches:
+      - prod
+      - release/major
+      - release/minor
+    tags:
+      - 'v*'
+
+  # 手动触发（可在 GitHub Actions 页面操作）
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: '版本更新类型'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      draft:
+        description: '创建为草稿 Release'
+        required: false
+        default: false
+        type: boolean
+      pre_release:
+        description: '标记为预发布版本'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================
+  # Job 1: 版本管理（只运行一次）
+  # ============================================
+  version:
+    name: Manage Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_type: ${{ steps.version_type.outputs.type }}
+      is_draft: ${{ steps.release_config.outputs.draft }}
+      is_pre_release: ${{ steps.release_config.outputs.pre_release }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Determine release config
+        id: release_config
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "draft=${{ github.event.inputs.draft }}" >> $GITHUB_OUTPUT
+            echo "pre_release=${{ github.event.inputs.pre_release }}" >> $GITHUB_OUTPUT
+          else
+            echo "draft=false" >> $GITHUB_OUTPUT
+            echo "pre_release=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Determine version type
+        id: version_type
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "type=${{ github.event.inputs.version_type }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/release/major" ]]; then
+            echo "type=major" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/release/minor" ]]; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
+            echo "type=patch" >> $GITHUB_OUTPUT
+          else
+            # 检查最新的 commit message
+            LAST_MSG=$(git log -1 --pretty=%B)
+            if [[ "$LAST_MSG" =~ chore\(release\):\ major ]]; then
+              echo "type=major" >> $GITHUB_OUTPUT
+            elif [[ "$LAST_MSG" =~ chore\(release\):\ minor ]]; then
+              echo "type=minor" >> $GITHUB_OUTPUT
+            else
+              echo "type=patch" >> $GITHUB_OUTPUT
+            fi
+          fi
+        shell: bash
+
+      - name: Update version
+        id: version
+        run: |
+          NEW_VERSION=$(node scripts/bump-version.js ${{ steps.version_type.outputs.type }})
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
+
+          # 输出版本信息
+          echo "### 📦 Version Info" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: ${{ steps.version_type.outputs.type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: $NEW_VERSION" >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          # 获取上一个 tag
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          # 生成 changelog（按 conventional commits 分类）
+          if [ -n "$PREV_TAG" ]; then
+            # 提取各类别的提交
+            ALL_COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --reverse)
+
+            # 按类型分类
+            FEAT_COMMITS=$(echo "$ALL_COMMITS" | grep "^- feat" | head -20)
+            FIX_COMMITS=$(echo "$ALL_COMMITS" | grep "^- fix" | head -20)
+            PERF_COMMITS=$(echo "$ALL_COMMITS" | grep "^- perf" | head -10)
+            REFACTOR_COMMITS=$(echo "$ALL_COMMITS" | grep "^- refactor" | head -10)
+            DOCS_COMMITS=$(echo "$ALL_COMMITS" | grep "^- docs" | head -10)
+            CHORE_COMMITS=$(echo "$ALL_COMMITS" | grep "^- chore" | head -10)
+            OTHER_COMMITS=$(echo "$ALL_COMMITS" | grep -v "^- \(feat\|fix\|perf\|refactor\|docs\|chore\)" | head -10)
+
+            # 构建 release notes
+            cat > ${{ github.workspace }}/release-notes.md << EOF
+          ## 📦 版本 ${{ env.new_version }}
+
+          **发布时间**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          ### ✨ 新功能
+          ${FEAT_COMMITS:-无}
+
+          ### 🐛 Bug 修复
+          ${FIX_COMMITS:-无}
+
+          ### ⚡ 性能优化
+          ${PERF_COMMITS:-无}
+
+          ### ♻️ 代码重构
+          ${REFACTOR_COMMITS:-无}
+
+          ### 📝 文档更新
+          ${DOCS_COMMITS:-无}
+
+          ### 🔧 构建/工具
+          ${CHORE_COMMITS:-无}
+
+          ### 📦 其他变更
+          ${OTHER_COMMITS:-无}
+
+          ### 📥 下载说明
+          - **macOS**: 下载 `.dmg` 文件，双击安装
+          - **Windows**: 下载 `.exe` 安装程序，运行安装
+          - **Linux**: 下载 `.AppImage` 或 `.deb` 文件
+          EOF
+
+            # 输出到 summary（简化版）
+            TOTAL_COMMITS=$(echo "$ALL_COMMITS" | wc -l)
+            echo "### 📝 Release Notes" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Commits**: $TOTAL_COMMITS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Features**: $(echo "$FEAT_COMMITS" | grep -c "^" || echo 0)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Fixes**: $(echo "$FIX_COMMITS" | grep -c "^" || echo 0)" >> $GITHUB_STEP_SUMMARY
+          else
+            cat > ${{ github.workspace }}/release-notes.md << EOF
+          ## 📦 版本 ${{ env.new_version }}
+
+          **发布时间**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          ### 🎉 首次发布
+          这是排序算法综合演示系统的首个版本！
+
+          ### 📥 下载说明
+          - **macOS**: 下载 `.dmg` 文件，双击安装
+          - **Windows**: 下载 `.exe` 安装程序，运行安装
+          - **Linux**: 下载 `.AppImage` 或 `.deb` 文件
+          EOF
+
+            echo "### 📝 Release Notes" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 首次发布" >> $GITHUB_STEP_SUMMARY
+          fi
+        shell: bash
+
+      - name: Commit version update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 提交版本更新
+          git add package.json
+          git commit -m "chore(release): bump version to ${{ env.new_version }}"
+
+          # 推送提交（但不推送 tag）
+          git push origin HEAD:${{ github.ref_name }}
+        shell: bash
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: ${{ github.workspace }}/release-notes.md
+
+  # ============================================
+  # Job 2: 构建多平台（并行执行）
+  # ============================================
+  build:
+    name: Build on ${{ matrix.os }}
+    needs: version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            platform: mac
+            target: dmg
+          - os: windows-latest
+            platform: windows
+            target: nsis
+          - os: ubuntu-latest
+            platform: linux
+            target: AppImage
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Cache Electron binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
+      - name: Install system dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            rpmsign \
+            libnss3-tools \
+            rpm \
+            fakeroot \
+            binutils \
+            zstd \
+            libudev-dev \
+            libgtk-3-dev \
+            libgconf-2-4 \
+            libnotify4 \
+            libappindicator3-1 \
+            libxtst6 \
+            libxss1
+
+      - name: Build
+        run: cross-env BUILD_TARGET=electron pnpm run build
+        shell: bash
+
+      - name: Package for macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          # 代码签名（如果有证书）
+          if [ -n "$MAC_CERTS_BASE64" ]; then
+            echo "🔐 设置 macOS 代码签名..."
+
+            # 创建钥匙链
+            KEY_CHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+            KEY_CHAIN_PASSWORD=$(openssl rand -base64 32)
+
+            security create-keychain -p "$KEY_CHAIN_PASSWORD" $KEY_CHAIN_PATH
+            security set-keychain-settings -lut 21600 $KEY_CHAIN_PATH
+            security unlock-keychain -p "$KEY_CHAIN_PASSWORD" $KEY_CHAIN_PATH
+
+            # 导入证书
+            CERT_PATH=$RUNNER_TEMP/cert.p12
+            echo "$MAC_CERTS_BASE64" | base64 -d > $CERT_PATH
+
+            security import $CERT_PATH \
+              -P "$MAC_CERTS_PASSWORD" \
+              -A \
+              -t cert \
+              -f pkcs12 \
+              -k $KEY_CHAIN_PATH
+
+            security set-key-partition-list -S apple-tool:,apple:,codesign: \
+              -s -k "$KEY_CHAIN_PASSWORD" \
+              $KEY_CHAIN_PATH
+
+            # 设置签名环境变量
+            export CSC_LINK=$CERT_PATH
+            export CSC_KEY_PASSWORD=$MAC_CERTS_PASSWORD
+
+            echo "✅ macOS 代码签名配置完成"
+          else
+            echo "⚠️  未配置 macOS 证书，跳过签名"
+          fi
+
+          electron-builder --mac --publish never
+        shell: bash
+        env:
+          MAC_CERTS_BASE64: ${{ secrets.MAC_CERTS_BASE64 }}
+          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+
+      - name: Package for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          # Windows 代码签名（如果有证书）
+          if ($env:WIN_CERTIFICATE_BASE64) {
+            Write-Output "🔐 设置 Windows 代码签名..."
+
+            # 导入证书
+            $CERT_PATH = "$env:RUNNER_TEMP\cert.pfx"
+            $env:WIN_CERTIFICATE_BASE64 | Out-File -Encoding Byte $CERT_PATH
+
+            # 导入证书到 Windows 证书存储
+            $CERT_PASSWORD = ConvertTo-SecureString -String $env:WIN_CERTIFICATE_PASSWORD -Force -AsPlainText
+            Import-PfxCertificate -FilePath $CERT_PATH -CertStoreLocation Cert:\LocalMachine\My -Password $CERT_PASSWORD
+
+            # 设置签名环境变量
+            $env:CSC_LINK = $CERT_PATH
+            $env:CSC_KEY_PASSWORD = $env:WIN_CERTIFICATE_PASSWORD
+
+            Write-Output "✅ Windows 代码签名配置完成"
+          } else {
+            Write-Output "⚠️  未配置 Windows 证书，跳过签名"
+          }
+
+          electron-builder --win --publish never
+        shell: pwsh
+        env:
+          WIN_CERTIFICATE_BASE64: ${{ secrets.WIN_CERTIFICATE_BASE64 }}
+          WIN_CERTIFICATE_PASSWORD: ${{ secrets.WIN_CERTIFICATE_PASSWORD }}
+
+      - name: Package for Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: electron-builder --linux --publish never
+        shell: bash
+
+      - name: Upload artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ needs.version.outputs.version }}
+          path: |
+            release/*.dmg
+            release/*.zip
+          retention-days: 30
+
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ needs.version.outputs.version }}
+          path: |
+            release/*.exe
+            release/*.zip
+          retention-days: 30
+
+      - name: Upload artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ needs.version.outputs.version }}
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+          retention-days: 30
+
+  # ============================================
+  # Job 3: 创建 Release（依赖构建完成）
+  # ============================================
+  release:
+    name: Create Release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: ./
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Display structure
+        run: ls -R ./artifacts
+
+      - name: Create Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 创建 tag
+          git tag "v${{ needs.version.outputs.version }}"
+
+          # 推送 tag
+          git push origin "v${{ needs.version.outputs.version }}"
+
+          echo "### 🏷️  Tag Created" >> $GITHUB_STEP_SUMMARY
+          echo "Tag: v${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 读取 release notes
+          RELEASE_NOTES=$(cat release-notes.md)
+
+          # 创建 release
+          gh release create "v${{ needs.version.outputs.version }}" \
+            --title "📦 版本 ${{ needs.version.outputs.version }}" \
+            --notes "$RELEASE_NOTES" \
+            --draft ${{ needs.version.outputs.is_draft }} \
+            --prerelease ${{ needs.version.outputs.is_pre_release }}
+
+      - name: Upload assets to Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 收集所有文件
+          find ./artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.zip" \) > upload_files.txt
+
+          # 上传所有文件（不分平台，一次性上传）
+          while IFS= read -r file; do
+            echo "Uploading: $file"
+            gh release upload "v${{ needs.version.outputs.version }}" "$file"
+          done < upload_files.txt
+
+      - name: Update Release Summary
+        run: |
+          echo "### ✅ Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: v${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: ${{ needs.version.outputs.version_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Draft**: ${{ needs.version.outputs.is_draft }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pre-release**: ${{ needs.version.outputs.is_pre_release }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
