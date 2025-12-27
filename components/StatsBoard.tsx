@@ -1,53 +1,27 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { SortStats } from '../types';
 
 interface Props {
   currentStats: { comparisons: number; swaps: number; time: string };
-  benchmarkResults: SortStats[];
+  benchmarkResults?: any[]; // Keep props signature but unused
 }
 
-const StatsBoard: React.FC<Props> = ({ currentStats, benchmarkResults }) => {
+const StatsBoard: React.FC<Props> = ({ currentStats }) => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Real-time Stats */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">当前运行统计</h3>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-indigo-50 p-4 rounded-lg">
-            <p className="text-xs text-indigo-500 font-semibold uppercase">比较次数</p>
-            <p className="text-2xl font-bold text-indigo-700">{currentStats.comparisons}</p>
-          </div>
-          <div className="bg-red-50 p-4 rounded-lg">
-            <p className="text-xs text-red-500 font-semibold uppercase">交换次数</p>
-            <p className="text-2xl font-bold text-red-700">{currentStats.swaps}</p>
-          </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <p className="text-xs text-green-500 font-semibold uppercase">耗时</p>
-            <p className="text-xl font-bold text-green-700">{currentStats.time}</p>
-          </div>
+    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+      <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">实时性能监控</h3>
+      <div className="grid grid-cols-1 gap-4">
+        <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
+          <p className="text-xs text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-widest mb-1">比较次数 (Comparisons)</p>
+          <p className="text-3xl font-black text-indigo-700 dark:text-indigo-300">{currentStats.comparisons.toLocaleString()}</p>
         </div>
-      </div>
-
-      {/* Benchmark Chart */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 min-h-[300px]">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">性能基准测试对比 (ms)</h3>
-        {benchmarkResults.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-gray-400">
-            运行不同算法以进行对比
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={benchmarkResults} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" />
-              <YAxis dataKey="algorithm" type="category" width={120} tick={{fontSize: 10}} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="timeMs" fill="#6366f1" name="时间 (ms)" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
+        <div className="bg-rose-50 dark:bg-rose-900/30 p-4 rounded-xl border border-rose-100 dark:border-rose-800/50">
+          <p className="text-xs text-rose-500 dark:text-rose-400 font-bold uppercase tracking-widest mb-1">交换/移位 (Swaps/Shifts)</p>
+          <p className="text-3xl font-black text-rose-700 dark:text-rose-300">{currentStats.swaps.toLocaleString()}</p>
+        </div>
+        <div className="bg-emerald-50 dark:bg-emerald-900/30 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/50">
+          <p className="text-xs text-emerald-500 dark:text-emerald-400 font-bold uppercase tracking-widest mb-1">执行时间 (Elapsed)</p>
+          <p className="text-3xl font-black text-emerald-700 dark:text-emerald-300">{currentStats.time}</p>
+        </div>
       </div>
     </div>
   );

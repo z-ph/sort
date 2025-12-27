@@ -1,32 +1,30 @@
 import React, { useEffect, useRef } from 'react';
 import { AlgorithmType, SortStep } from '../types';
 import { CHART_COLORS } from '../constants';
-import { ArrowDown } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
 interface Props {
   step: SortStep | null;
   maxValue: number;
   algorithm?: AlgorithmType;
+  theme?: 'light' | 'dark';
 }
 
-const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm }) => {
+const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm, theme = 'light' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Canvas Drawing Logic
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container || !step) return;
 
-    const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    // Handle High DPI displays
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
     
-    // Resize only if dimensions changed to avoid flickering
     if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
@@ -34,34 +32,28 @@ const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm }) => {
         canvas.style.height = `${rect.height}px`;
     }
 
-    // Normalize coordinate system to use css pixels
-    // Reset transform to identity before scaling
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
     
-    // Clear canvas
-    ctx.fillStyle = '#ffffff';
+    // Background match: bg-slate-50 / bg-slate-950
+    ctx.fillStyle = theme === 'dark' ? '#020617' : '#f8fafc';
     ctx.fillRect(0, 0, rect.width, rect.height);
 
     const { array, comparing, swapping, sorted, aux } = step;
     const total = array.length;
-    // Calculate precise float width to avoid gaps accumulating
     const barWidth = rect.width / total; 
     
-    // Performance optimization: 
-    // Instead of using array.includes() inside the loop (which makes it O(N*M)),
-    // we use Sets for O(1) lookups.
     const comparingSet = new Set(comparing);
     const swappingSet = new Set(swapping);
     const sortedSet = new Set(sorted);
 
-    // Batch draw calls by color to minimize state changes (optional optimization, keeping simple for now)
-    
     for (let i = 0; i < total; i++) {
         const value = array[i];
-        let fillStyle = CHART_COLORS.bar;
+        
+        // IMPROVED CONTRAST FOR DARK MODE
+        // Using a more vibrant slate/blue for better visibility in dark mode against pure dark background
+        let fillStyle = theme === 'dark' ? '#334155' : CHART_COLORS.bar; // slate-700 vs original dark blue
 
-        // Determine Color Priority (Hot paths first)
         if (sortedSet.has(i)) {
             fillStyle = CHART_COLORS.sorted;
         } else if (swappingSet.has(i)) {
@@ -70,9 +62,8 @@ const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm }) => {
             fillStyle = CHART_COLORS.compare;
         }
 
-        // Algorithm Specific Overrides
         if (algorithm === AlgorithmType.QUICK_REC || algorithm === AlgorithmType.QUICK_ITER) {
-            if (i === aux?.pivot) fillStyle = '#9333ea'; 
+            if (i === aux?.pivot) fillStyle = '#a855f7'; // Purple for pivot
         } else if (algorithm === AlgorithmType.HEAP) {
             if (aux?.heapSize !== undefined && i >= aux.heapSize) {
                 fillStyle = CHART_COLORS.sorted;
@@ -82,79 +73,53 @@ const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm }) => {
             if (aux?.val === value && swappingSet.has(i)) fillStyle = '#22c55e';
         }
 
-        // Draw Bar
         const heightPercentage = Math.max((value / maxValue), 0.005);
         const barHeight = Math.floor(heightPercentage * rect.height);
         const x = Math.floor(i * barWidth);
         const y = rect.height - barHeight;
-        // Use Math.ceil for width to prevent sub-pixel gaps
         const w = Math.ceil(barWidth); 
 
         ctx.fillStyle = fillStyle;
         ctx.fillRect(x, y, w, barHeight);
+        
+        // Add subtle outlines for clarity
+        if (total < 100) {
+          ctx.strokeStyle = theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x, y, w, barHeight);
+        }
     }
 
-  }, [step, maxValue, algorithm]);
+  }, [step, maxValue, algorithm, theme]);
 
-  if (!step) return <div className="h-64 flex items-center justify-center text-gray-400">无数据</div>;
+  if (!step) return (
+    <div className="h-[400px] flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400">
+      <Zap size={48} className="mb-3 opacity-20" />
+      <p className="font-black text-sm uppercase tracking-widest">初始化看板中...</p>
+    </div>
+  );
 
-  // Render Overlays (Pivot, Range, etc.) using DOM absolute positioning
-  // These are few in number (usually < 5 elements), so DOM is fine and easier for styling.
   const renderRangeOverlay = () => {
     if (!step.aux?.range) return null;
     const { start, end } = step.aux.range;
     const total = step.array.length;
     const left = (start / total) * 100;
     const width = ((end - start + 1) / total) * 100;
-    const color = algorithm?.includes('归并') ? 'bg-blue-100/50 border-blue-300' : 'bg-purple-100/50 border-purple-300';
+    const color = algorithm?.includes('归并') 
+        ? 'bg-blue-500/10 border-blue-500/30' 
+        : 'bg-purple-500/10 border-purple-500/30';
 
     return (
       <div 
-        className={`absolute top-0 bottom-0 border-x-2 border-t-2 border-dashed z-0 rounded-t-lg pointer-events-none ${color}`}
+        className={`absolute top-0 bottom-0 border-x-2 border-t-2 border-dashed z-0 rounded-t-xl pointer-events-none transition-all duration-300 ${color}`}
         style={{ left: `${left}%`, width: `${width}%` }}
-      >
-      </div>
+      />
     );
   };
 
-  const renderPivotIndicator = () => {
-      if (step.aux?.pivot === undefined) return null;
-      const total = step.array.length;
-      const left = (step.aux.pivot / total) * 100;
-      const barWidthPercentage = 100 / total;
-
-      return (
-          <div 
-            className="absolute bottom-0 z-20 flex flex-col items-center pointer-events-none"
-            style={{ left: `${left}%`, width: `${Math.max(barWidthPercentage, 0.5)}%`, height: '100%' }}
-          >
-              <div className="absolute -top-6 text-purple-600 font-bold text-xs flex flex-col items-center whitespace-nowrap">
-                  <span>Pivot</span>
-                  <ArrowDown size={12} />
-              </div>
-          </div>
-      );
-  };
-
-  const renderHeapBoundary = () => {
-      if (step.aux?.heapSize === undefined) return null;
-      const total = step.array.length;
-      const split = (step.aux.heapSize / total) * 100;
-      
-      return (
-          <div className="absolute top-0 bottom-0 border-r-2 border-red-400 z-20 pointer-events-none" style={{ left: `${split}%` }}>
-              <div className="absolute top-2 right-1 text-xs text-red-500 font-bold bg-white/80 px-1 rounded transform rotate-90 origin-right whitespace-nowrap shadow-sm">
-                  Sorted &darr;
-              </div>
-          </div>
-      );
-  };
-
   return (
-    <div className="w-full h-full relative p-4 bg-white rounded-lg shadow-inner border border-gray-200 overflow-hidden" ref={containerRef}>
+    <div className="w-full h-[400px] relative p-1 bg-white dark:bg-slate-900 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 overflow-hidden" ref={containerRef}>
       {renderRangeOverlay()}
-      {renderPivotIndicator()}
-      {renderHeapBoundary()}
       <canvas 
         ref={canvasRef}
         className="block relative z-10 w-full h-full"

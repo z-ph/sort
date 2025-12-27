@@ -1,30 +1,39 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AlgorithmType, SortStep, SortStats } from './types';
-import { DEFAULT_ARRAY_SIZE, MIN_ARRAY_VALUE, MAX_ARRAY_VALUE, ANIMATION_SPEED_DEFAULT } from './constants';
-import { runBenchmark, AlgorithmGenerators } from './services/sortingAlgorithms';
+import { DEFAULT_ARRAY_SIZE, MIN_ARRAY_VALUE, MAX_ARRAY_VALUE, ANIMATION_SPEED_DEFAULT, ALGORITHM_OPTIONS } from './constants';
+import { AlgorithmGenerators } from './services/sortingAlgorithms';
+import { parseImportFile, downloadFile, downloadSample } from './services/fileService';
 import SortVisualizer from './components/SortVisualizer';
 import ConceptVisualizer from './components/ConceptVisualizer';
-import ControlPanel from './components/ControlPanel';
-import StatsBoard from './components/StatsBoard';
-import { Download, Loader2 } from 'lucide-react';
+// Removed unused ControlPanel import as functional components were moved to App.tsx top bar
+import BenchmarkPage from './components/BenchmarkPage';
+import { Sun, Moon, LayoutDashboard, Zap, Activity, Shuffle, Upload, Download, FileJson, FileType, FileText, Settings, RotateCcw } from 'lucide-react';
 
-// --- Robust requestIdleCallback Polyfill ---
-// Uses MessageChannel if available for better precision than setTimeout
-const rIC = (typeof window !== 'undefined' && window.requestIdleCallback) ||
-  function (cb: IdleRequestCallback) {
-    const start = Date.now();
-    return setTimeout(function () {
-      cb({
-        didTimeout: false,
-        timeRemaining: function () {
-          return Math.max(0, 50 - (Date.now() - start));
-        },
-      });
-    }, 1);
-  };
+export const getAlgorithmMetrics = (type: AlgorithmType) => {
+  switch (type) {
+    case AlgorithmType.COUNTING:
+      return { label1: '数据扫描', label2: '计数/写回' };
+    case AlgorithmType.RADIX:
+      return { label1: '位次扫描', label2: '分配/收集' };
+    case AlgorithmType.INSERTION:
+    case AlgorithmType.BINARY_INSERTION:
+    case AlgorithmType.SHELL:
+      return { label1: '比较次数', label2: '元素移动' };
+    case AlgorithmType.MERGE_REC:
+    case AlgorithmType.MERGE_ITER:
+      return { label1: '比较次数', label2: '辅助写回' };
+    default:
+      return { label1: '比较次数', label2: '交换次数' };
+  }
+};
 
 const App: React.FC = () => {
-  // State
+  const [view, setView] = useState<'home' | 'benchmark'>('home');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved as 'light' | 'dark') || 'light';
+  });
+
   const [array, setArray] = useState<number[]>([]);
   const [arraySize, setArraySize] = useState(DEFAULT_ARRAY_SIZE);
   const [algorithm, setAlgorithm] = useState<AlgorithmType>(AlgorithmType.BUBBLE);
@@ -34,35 +43,21 @@ const App: React.FC = () => {
   const [isSorting, setIsSorting] = useState(false); 
   const [currentStep, setCurrentStep] = useState<SortStep | null>(null);
   const [stats, setStats] = useState({ comparisons: 0, swaps: 0, time: '0s' });
-  const [benchmarkResults, setBenchmarkResults] = useState<SortStats[]>([]);
-  const [isBenchmarking, setIsBenchmarking] = useState(false);
 
-  // Refs for animation loop
   const generatorRef = useRef<Generator<SortStep> | null>(null);
   const rafRef = useRef<number | null>(null); 
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
-  const stepsLogRef = useRef<SortStep[]>([]);
-  
-  // Refs for batching logic
-  const stepsSinceLastRender = useRef(0);
   const accumulatedStats = useRef({ comparisons: 0, swaps: 0 });
-
-  // Init Array
-  const generateArray = useCallback((size: number) => {
-    const newArray = Array.from({ length: size }, () =>
-      Math.floor(Math.random() * (MAX_ARRAY_VALUE - MIN_ARRAY_VALUE + 1) + MIN_ARRAY_VALUE)
-    );
-    setArray(newArray);
-    resetSorter(newArray);
-  }, []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    generateArray(arraySize);
-  }, [arraySize, generateArray]);
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
-  // Reset Logic
-  const resetSorter = (arr: number[]) => {
+  const resetSorter = useCallback((arr: number[]) => {
     setIsPlaying(false);
     setIsFinished(false);
     setIsSorting(false);
@@ -72,341 +67,296 @@ const App: React.FC = () => {
       comparing: [],
       swapping: [],
       sorted: [],
-      description: '准备排序'
+      description: '等待操作...'
     });
     generatorRef.current = null;
-    stepsLogRef.current = [];
     accumulatedStats.current = { comparisons: 0, swaps: 0 };
-    
+    startTimeRef.current = 0;
     if (timerRef.current) clearInterval(timerRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  };
+  }, []);
 
-  // --- Core Step Execution Logic ---
-  // Returns true if finished, false otherwise
+  const generateArray = useCallback((size: number) => {
+    const newArray = Array.from({ length: size }, () =>
+      Math.floor(Math.random() * (MAX_ARRAY_VALUE - MIN_ARRAY_VALUE + 1) + MIN_ARRAY_VALUE)
+    );
+    setArray(newArray);
+    resetSorter(newArray);
+  }, [resetSorter]);
+
+  useEffect(() => {
+    generateArray(arraySize);
+  }, [arraySize, generateArray]);
+
   const executeSingleStep = (): { finished: boolean, value?: SortStep } => {
     if (!generatorRef.current) return { finished: true };
-    
     const { value, done } = generatorRef.current.next();
     
-    if (done) {
-       return { finished: true, value };
-    }
+    if (done) return { finished: true, value };
     
     if (value) {
-        // Accumulate stats without triggering re-render yet
-        accumulatedStats.current.comparisons += (value.comparing.length > 0 ? 1 : 0);
-        accumulatedStats.current.swaps += (value.swapping.length > 0 ? 1 : 0);
+        // 核心修复：更精确地捕捉步骤中的动作
+        if (value.comparing.length > 0) accumulatedStats.current.comparisons += 1;
+        if (value.swapping.length > 0) accumulatedStats.current.swaps += 1;
         return { finished: false, value };
     }
     return { finished: false };
   };
 
-  // --- The Animation Loop (Time Sliced) ---
+  const updateStatsState = () => {
+    const elapsed = startTimeRef.current > 0 ? ((performance.now() - startTimeRef.current) / 1000).toFixed(1) : '0.0';
+    
+    // 立即消耗当前累加的值
+    const compDelta = accumulatedStats.current.comparisons;
+    const swapDelta = accumulatedStats.current.swaps;
+
+    if (compDelta > 0 || swapDelta > 0) {
+      setStats(prev => ({
+        comparisons: prev.comparisons + compDelta,
+        swaps: prev.swaps + swapDelta,
+        time: `${elapsed}s`
+      }));
+      // 重置累加器
+      accumulatedStats.current = { comparisons: 0, swaps: 0 };
+    } else {
+      // 仅更新时间
+      setStats(prev => ({ ...prev, time: `${elapsed}s` }));
+    }
+  };
+
   const performAnimationLoop = useCallback(() => {
      if (!isPlaying || isFinished) return;
-
      const isMaxSpeed = speed < 5;
-     
-     // TIME BUDGET: 
-     // If max speed, we use a 12ms budget per frame (leaving 4ms for React render/Browser paint).
-     // If slower, we only run 1 step.
      const frameStart = performance.now();
-     const timeBudget = 12; // ms
-     
+     const timeBudget = 12; 
      let lastStepValue: SortStep | null = null;
      let finished = false;
-     let stepsProcessed = 0;
 
-     // Execute steps loop
      do {
          const result = executeSingleStep();
          finished = result.finished;
-         if (result.value) {
-             lastStepValue = result.value;
-             stepsLogRef.current.push(result.value);
-         }
-         stepsProcessed++;
-
-         // Break conditions:
-         // 1. If finished
-         // 2. If not max speed (one step per call)
-         // 3. If max speed, but time budget exceeded
+         if (result.value) lastStepValue = result.value;
          if (finished) break;
          if (!isMaxSpeed) break; 
-         
      } while (performance.now() - frameStart < timeBudget);
 
-     // Update UI with the state of the LAST step in this batch
      if (lastStepValue) {
         setCurrentStep(lastStepValue);
-        const elapsed = ((performance.now() - startTimeRef.current) / 1000).toFixed(1);
-        
-        // Batch update stats
-        setStats(prev => ({
-            comparisons: prev.comparisons + accumulatedStats.current.comparisons,
-            swaps: prev.swaps + accumulatedStats.current.swaps,
-            time: `${elapsed}s`
-        }));
-        
-        // Reset accumulator
-        accumulatedStats.current = { comparisons: 0, swaps: 0 };
+        updateStatsState();
      }
 
      if (finished) {
          setIsPlaying(false);
          setIsFinished(true);
-         if (timerRef.current) clearInterval(timerRef.current);
-         if (rafRef.current) cancelAnimationFrame(rafRef.current);
-     } else {
-         // Schedule next frame
-         if (isMaxSpeed) {
-             rafRef.current = requestAnimationFrame(performAnimationLoop);
-         }
-         // Note: For slow speeds, the setInterval in useEffect handles the scheduling, 
-         // so we don't recursive call here.
+     } else if (isMaxSpeed) {
+         rafRef.current = requestAnimationFrame(performAnimationLoop);
      }
-
   }, [isPlaying, isFinished, speed]);
 
-
-  // Effect to manage the loop trigger
   useEffect(() => {
       if (!isPlaying || isFinished) return;
-
-      if (speed < 5) {
-          // Use rAF for high speed (batch processing)
-          rafRef.current = requestAnimationFrame(performAnimationLoop);
-      } else {
-          // Use Interval for controlled slow speed
-          timerRef.current = window.setInterval(performAnimationLoop, speed);
-      }
-
+      if (speed < 5) rafRef.current = requestAnimationFrame(performAnimationLoop);
+      else timerRef.current = window.setInterval(performAnimationLoop, speed);
+      
       return () => {
           if (rafRef.current) cancelAnimationFrame(rafRef.current);
           if (timerRef.current) clearInterval(timerRef.current);
       };
   }, [isPlaying, isFinished, speed, performAnimationLoop]);
 
-
-  // Handlers
-  const handlePlay = () => {
-    if (!generatorRef.current) {
-      generatorRef.current = AlgorithmGenerators[algorithm](array);
-      startTimeRef.current = performance.now();
-      setIsSorting(true);
-    }
-    setIsPlaying(true);
-  };
-
-  const handlePause = () => {
-    setIsPlaying(false);
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  };
-
   const handleNextStep = () => {
     if (isFinished) return;
-    if (!generatorRef.current) {
-      generatorRef.current = AlgorithmGenerators[algorithm](array);
-      startTimeRef.current = performance.now();
-      setIsSorting(true);
+    if (!generatorRef.current) { 
+      generatorRef.current = AlgorithmGenerators[algorithm](array); 
+      startTimeRef.current = performance.now(); 
+      setIsSorting(true); 
     }
-    
-    // Execute exactly one step manually
     const { finished, value } = executeSingleStep();
-    
-    if (value) {
-        setCurrentStep(value);
-        stepsLogRef.current.push(value);
-        const elapsed = ((performance.now() - startTimeRef.current) / 1000).toFixed(1);
-        setStats(prev => ({
-            comparisons: prev.comparisons + accumulatedStats.current.comparisons,
-            swaps: prev.swaps + accumulatedStats.current.swaps,
-            time: `${elapsed}s`
-        }));
-        accumulatedStats.current = { comparisons: 0, swaps: 0 };
+    if (value) { 
+      setCurrentStep(value);
+      updateStatsState();
     }
-
-    if (finished) {
-        setIsFinished(true);
-        setIsPlaying(false);
+    if (finished) { 
+      setIsFinished(true); 
+      setIsPlaying(false); 
     }
   };
 
-  const handleGenerate = () => {
-    generateArray(arraySize);
+  const handleImport = async (file: File) => {
+    try {
+      const numbers = await parseImportFile(file);
+      if (numbers.length > 0) {
+        setArraySize(numbers.length);
+        setArray(numbers);
+        resetSorter(numbers);
+      }
+    } catch (e) { alert('文件导入失败: ' + (e as Error).message); }
   };
 
-  const handleReset = () => {
-    resetSorter(array);
-  };
-
-  // --- Time-Sliced Benchmark Runner ---
-  const runBenchmarks = () => {
-    if (isBenchmarking) return;
-    setIsBenchmarking(true);
-    setBenchmarkResults([]);
-
-    const BENCHMARK_SIZE = 2000; 
-    // Create benchmark array (heavy operation, do it once)
-    const benchmarkArray = Array.from({ length: BENCHMARK_SIZE }, () =>
-        Math.floor(Math.random() * (MAX_ARRAY_VALUE - MIN_ARRAY_VALUE + 1) + MIN_ARRAY_VALUE)
-    );
-
-    const algos = Object.values(AlgorithmType) as AlgorithmType[];
-    const tasks = [...algos]; // Queue of algorithms to test
-    const newResults: SortStats[] = [];
-
-    // The "Task Processor"
-    const processNext = (deadline: IdleDeadline) => {
-        // While there is time remaining in this frame (and tasks left)
-        while (tasks.length > 0 && deadline.timeRemaining() > 1) {
-            const currentAlgo = tasks.shift();
-            if (currentAlgo) {
-                // Run sync algorithm (might take 5-50ms for BubbleSort N=2000)
-                // This blocks ONLY for that specific algorithm's duration, then yields.
-                const res = runBenchmark(currentAlgo, benchmarkArray);
-                newResults.push({
-                    algorithm: currentAlgo,
-                    timeMs: parseFloat(res.time.toFixed(2)),
-                    comparisons: res.comparisons,
-                    swaps: res.swaps,
-                    arraySize: BENCHMARK_SIZE
-                });
-            }
-        }
-
-        // Update UI with partial results so user sees progress
-        setBenchmarkResults([...newResults]);
-
-        if (tasks.length > 0) {
-            // If tasks remain, request next idle slot
-            rIC(processNext);
-        } else {
-            // All done
-            setIsBenchmarking(false);
-        }
-    };
-
-    // Start the chain
-    rIC(processNext);
-  };
-
-  // Download Logs
-  const downloadLog = () => {
-      const sampledSteps = stepsLogRef.current.filter((_, i) => i % 10 === 0 || i === stepsLogRef.current.length - 1);
-      const simplifiedSteps = sampledSteps.map(step => ({ array: step.array }));
-      const exportData = {
-          initialArray: array,
-          algorithm: algorithm,
-          steps: simplifiedSteps,
-          finalStats: stats
-      };
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `sort_log_${algorithm}_${Date.now()}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-  };
+  const metrics = getAlgorithmMetrics(algorithm);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-10">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                    S
-                </div>
-                <h1 className="text-xl font-bold text-gray-900 hidden sm:block">排序算法综合演示系统</h1>
-                <h1 className="text-xl font-bold text-gray-900 block sm:hidden">排序演示</h1>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 py-6 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <header className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-indigo-600 rounded-xl text-white shadow-lg">
+              <Activity size={24} strokeWidth={2.5} />
             </div>
-            <div className="flex gap-4">
-                 <button onClick={downloadLog} className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600">
-                     <Download className="w-4 h-4" /> <span className="hidden sm:inline">下载报告</span>
-                 </button>
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">排序算法综合演示系统</h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Professional Algorithm Lab & Analyzer</p>
             </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <div className="space-y-6 lg:col-span-1">
-                <ControlPanel 
-                    algorithm={algorithm}
-                    setAlgorithm={setAlgorithm}
-                    size={arraySize}
-                    setSize={setArraySize}
-                    speed={speed}
-                    setSpeed={setSpeed}
-                    onGenerate={handleGenerate}
-                    onPlay={handlePlay}
-                    onPause={handlePause}
-                    onReset={handleReset}
-                    onNextStep={handleNextStep}
-                    isPlaying={isPlaying}
-                    isFinished={isFinished}
-                    isSorting={isSorting}
-                />
-
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="font-semibold text-gray-800 mb-2 border-b pb-2">状态日志</h3>
-                    <div className="h-40 overflow-y-auto text-sm font-mono text-gray-600 bg-gray-50 p-2 rounded">
-                        {currentStep?.description || "准备就绪..."}
-                        <br/>
-                        <span className="text-xs text-gray-400">
-                            元素数: {arraySize} | 算法: {algorithm}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="lg:col-span-2 space-y-6">
-                <div className="h-[400px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
-                    <SortVisualizer step={currentStep!} maxValue={MAX_ARRAY_VALUE} algorithm={algorithm} />
-                </div>
-                
-                <ConceptVisualizer 
-                    step={currentStep} 
-                    algorithm={algorithm} 
-                    arraySize={arraySize}
-                    onPlay={handlePlay}
-                    onPause={handlePause}
-                    onReset={handleReset}
-                    onGenerate={handleGenerate}
-                    onNextStep={handleNextStep}
-                    isPlaying={isPlaying}
-                    isFinished={isFinished}
-                />
-            </div>
-        </div>
-
-        <StatsBoard 
-            currentStats={stats}
-            benchmarkResults={benchmarkResults}
-        />
-        
-        <div className="flex justify-center flex-col items-center gap-2">
-            <button 
-                onClick={runBenchmarks}
-                disabled={isBenchmarking}
-                className={`px-6 py-3 rounded-full shadow-lg transition-all font-medium flex items-center gap-2 ${isBenchmarking ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-800 text-white hover:bg-slate-700 hover:shadow-xl'}`}
-            >
-                {isBenchmarking && <Loader2 className="animate-spin w-4 h-4" />}
-                {isBenchmarking ? '正在进行基准测试...' : '运行综合性能测试 (N=2000)'}
+          </div>
+          
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <button title="切换至可视化演示视图" onClick={() => setView('home')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${view === 'home' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+              <LayoutDashboard size={18} />可视化演示
             </button>
-            <p className="text-xs text-gray-500">
-                注意：基准测试为防止阻塞，采用时间分片异步执行，期间您可以继续操作页面。
-            </p>
-        </div>
+            <button title="切换至性能压力测试视图" onClick={() => setView('benchmark')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${view === 'benchmark' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+              <Zap size={18} />性能测试
+            </button>
+            <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-2" />
+            <button title={theme === 'light' ? '切换至暗色模式' : '切换至亮色模式'} onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')} className="p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+            </button>
+          </div>
+        </header>
 
-      </main>
+        <main>
+          {view === 'home' ? (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* TOP COMBINED CONSOLE SECTION */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                {/* Row 1: Data Management */}
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-6">
+                  <div className="flex items-center gap-3 pr-6 border-r border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">数据管理</span>
+                    <button title="随机生成一组新的乱序数组" onClick={() => generateArray(arraySize)} disabled={isPlaying} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all disabled:opacity-50">
+                      <Shuffle size={14} /> 随机生成
+                    </button>
+                  </div>
+
+                  <div className="flex flex-1 items-center gap-4 overflow-x-auto no-scrollbar py-1">
+                    <div className="flex items-center gap-2">
+                      <button title="从本地上传 .json, .csv 或 .txt 文件" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                        <Upload size={14} /> 导入数据
+                      </button>
+                      <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && handleImport(e.target.files[0])} className="hidden" accept=".json,.csv,.txt" />
+                    </div>
+                    
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-800" />
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase">结果导出:</span>
+                      <button title="下载为 JSON 格式" onClick={() => downloadFile(currentStep?.array || array, 'json', 'export')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-indigo-500"><FileJson size={16}/></button>
+                      <button title="下载为 CSV 格式" onClick={() => downloadFile(currentStep?.array || array, 'csv', 'export')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-indigo-500"><FileType size={16}/></button>
+                      <button title="下载为 TXT 格式" onClick={() => downloadFile(currentStep?.array || array, 'txt', 'export')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-indigo-500"><FileText size={16}/></button>
+                    </div>
+
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-800" />
+                    
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-black text-slate-400 uppercase">样本下载:</span>
+                      <button title="下载 JSON 示例文件" onClick={() => downloadSample('json')} className="text-[10px] font-bold text-slate-500 hover:text-indigo-600 hover:underline">JSON</button>
+                      <button title="下载 CSV 示例文件" onClick={() => downloadSample('csv')} className="text-[10px] font-bold text-slate-500 hover:text-indigo-600 hover:underline">CSV</button>
+                      <button title="下载 TXT 示例文件" onClick={() => downloadSample('txt')} className="text-[10px] font-bold text-slate-500 hover:text-indigo-600 hover:underline">TXT</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: Algorithm Configuration */}
+                <div className="p-4 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col lg:flex-row items-center gap-6">
+                  <div className="flex items-center gap-4 flex-1 w-full lg:w-auto">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Settings size={14} className="text-indigo-500" />
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">算法配置</span>
+                    </div>
+                    <select
+                      title="选择要演示的排序算法"
+                      value={algorithm}
+                      onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
+                      disabled={isSorting && !isFinished} 
+                      className="flex-1 max-w-[200px] px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 font-bold transition-all shadow-sm"
+                    >
+                      {ALGORITHM_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <button title="重置当前进度并将数组恢复为初始状态" onClick={() => resetSorter(array)} className="p-2.5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900 rounded-xl hover:bg-rose-100 transition-all shadow-sm">
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                    {isSorting && !isFinished && (
+                      <div className="px-2 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded text-[9px] font-black border border-amber-500/20 animate-pulse uppercase">
+                        切换算法请前先重置
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-6 flex-1 w-full lg:w-auto">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase">数据规模: {arraySize}</label>
+                      </div>
+                      <input title={`调整数组长度（当前: ${arraySize}）`} type="range" min="10" max="1500" step="10" value={arraySize} onChange={(e) => setArraySize(Number(e.target.value))} disabled={isPlaying} className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase">执行速度: {201 - speed}</label>
+                      </div>
+                      <input title={`调整动画演示频率（当前延时: ${speed}ms）`} type="range" min="1" max="200" value={201 - speed} onChange={(e) => setSpeed(201 - Number(e.target.value))} className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div className="xl:col-span-2 space-y-6">
+                  <SortVisualizer step={currentStep} maxValue={MAX_ARRAY_VALUE} algorithm={algorithm} theme={theme} />
+                  <ConceptVisualizer 
+                    step={currentStep} algorithm={algorithm} arraySize={arraySize}
+                    onPlay={() => {
+                      if (!generatorRef.current) { generatorRef.current = AlgorithmGenerators[algorithm](array); startTimeRef.current = performance.now(); setIsSorting(true); }
+                      setIsPlaying(true);
+                    }}
+                    onPause={() => setIsPlaying(false)}
+                    onReset={() => resetSorter(array)}
+                    onNextStep={handleNextStep}
+                    isPlaying={isPlaying} isFinished={isFinished}
+                  />
+                </div>
+
+                <div className="space-y-6">
+                  <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                    <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                      <Activity size={18} className="text-indigo-500" />执行看板
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 mb-5">
+                      <div title={metrics.label1} className="p-4 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100/50 dark:border-indigo-800/50">
+                        <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">{metrics.label1}</p>
+                        <p className="text-2xl font-black text-indigo-700 dark:text-indigo-300">{stats.comparisons.toLocaleString()}</p>
+                      </div>
+                      <div title={metrics.label2} className="p-4 bg-rose-50/50 dark:bg-rose-900/20 rounded-2xl border border-rose-100/50 dark:border-rose-800/50">
+                        <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">{metrics.label2}</p>
+                        <p className="text-2xl font-black text-rose-700 dark:text-rose-300">{stats.swaps.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center px-1 mb-2">
+                      <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">实时状态计时</h4>
+                      <span className="text-[10px] font-mono text-emerald-500 font-bold">{stats.time}</span>
+                    </div>
+                    <div title="当前算法操作的详细自然语言描述" className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 min-h-[90px] flex items-center italic text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                      {currentStep?.description || '系统就绪，等待演示开始...'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <BenchmarkPage />
+          )}
+        </main>
+      </div>
     </div>
   );
 };
