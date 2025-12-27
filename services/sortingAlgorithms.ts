@@ -14,7 +14,7 @@ const createStep = (
   array: isBenchmark ? [] : [...array], 
   comparing,
   swapping,
-  sorted,
+  sorted: isBenchmark ? [] : [...sorted], // Clone sorted to prevent reference mutation issues in history
   description,
   aux
 });
@@ -40,13 +40,11 @@ export function* bubbleSort(array: number[], isBenchmark: boolean = false): Gene
       }
     }
     sortedIndices.push(n - i - 1);
-    yield createStep(arr, [], [], sortedIndices, isBenchmark ? '' : `元素 ${arr[n-i-1]} 已归位`, undefined, isBenchmark);
+    // Removed "Element settled" step as requested
+    
     if (!swapped && i < n - 1) {
-         if (!isBenchmark) {
-             const remaining = Array.from({length: n - sortedIndices.length}, (_, k) => k);
-             sortedIndices.push(...remaining);
-         }
-         yield createStep(arr, [], [], sortedIndices, isBenchmark ? '' : `未发生交换，数组已完全有序`, undefined, isBenchmark);
+         // If no swaps occurred, the rest is sorted. 
+         // Removed "Array sorted" intermediate step as requested.
          return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
     }
   }
@@ -71,9 +69,9 @@ export function* selectionSort(array: number[], isBenchmark: boolean = false): G
     if (minIdx !== i) {
       [arr[i], arr[minIdx]] = [arr[minIdx], arr[i]];
       yield createStep(arr, [i, minIdx], [i, minIdx], sortedIndices, isBenchmark ? '' : `本轮结束: 将最小值 ${arr[i]} 交换到位置 ${i}`, isBenchmark ? undefined : { minIdx: i }, isBenchmark);
-    } else {
-      yield createStep(arr, [i], [], sortedIndices, isBenchmark ? '' : `本轮结束: ${arr[i]} 已经在正确位置`, isBenchmark ? undefined : { minIdx: i }, isBenchmark);
-    }
+    } 
+    // Removed "Already in place" step as requested
+    
     sortedIndices.push(i);
   }
   return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
@@ -285,12 +283,15 @@ function* _partition(arr: number[], low: number, high: number, isBenchmark: bool
              j--;
         }
         if (i < j) {
-             yield createStep(arr, [i, j], [], [], `交换 ${arr[i]} 和 ${arr[j]}`, { range, pivot: low, pointers: { i, j } }, isBenchmark);
+             // Removing comparing=[i, j] to avoid counting this setup step as a comparison.
+             // Visualizer will still show pointers i and j.
+             yield createStep(arr, [], [], [], `准备交换 ${arr[i]} 和 ${arr[j]}`, { range, pivot: low, pointers: { i, j } }, isBenchmark);
              [arr[i], arr[j]] = [arr[j], arr[i]];
              yield createStep(arr, [i, j], [i, j], [], `交换完成`, { range, pivot: low, pointers: { i, j } }, isBenchmark);
         } else break;
     }
-    yield createStep(arr, [low, j], [], [], `将基准值归位`, { range, pivot: low, pointers: { i, j } }, isBenchmark);
+    // Removing comparing=[low, j] to avoid counting this setup step as a comparison
+    yield createStep(arr, [], [], [], `准备将基准值归位`, { range, pivot: low, pointers: { i, j } }, isBenchmark);
     [arr[low], arr[j]] = [arr[j], arr[low]];
     yield createStep(arr, [j], [j], [], `基准值已归位`, { range, pivot: j, pointers: { i, j } }, isBenchmark);
     return j;
@@ -609,32 +610,44 @@ const pureHeap = (arr: number[]): PureStats => {
     
     const heapify = (n: number, i: number) => {
         let largest = i;
-        const l = 2 * i + 1;
-        const r = 2 * i + 2;
-        
-        if (l < n) {
-            comparisons++;
-            if (arr[l] > arr[largest]) largest = l;
-        }
-        if (r < n) {
-            comparisons++;
-            if (arr[r] > arr[largest]) largest = r;
-        }
-        if (largest !== i) {
-            [arr[i], arr[largest]] = [arr[largest], arr[i]];
-            swaps++;
-            heapify(n, largest);
+        let current = i;
+
+        while (true) {
+            const l = 2 * current + 1;
+            const r = 2 * current + 2;
+            largest = current;
+
+            if (l < n) {
+                comparisons++;
+                if (arr[l] > arr[largest]) largest = l;
+            }
+            if (r < n) {
+                comparisons++;
+                if (arr[r] > arr[largest]) largest = r;
+            }
+
+            if (largest !== current) {
+                [arr[current], arr[largest]] = [arr[largest], arr[current]];
+                swaps++;
+                current = largest; // Move down to the child
+            } else {
+                break; // Position found
+            }
         }
     };
 
+    // Build heap
     for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
         heapify(n, i);
     }
+    
+    // Extract elements
     for (let i = n - 1; i > 0; i--) {
         [arr[0], arr[i]] = [arr[i], arr[0]];
         swaps++;
         heapify(i, 0);
     }
+    
     return { comparisons, swaps };
 };
 

@@ -1,6 +1,6 @@
 import { AlgorithmType } from './types';
 
-export const DEFAULT_ARRAY_SIZE = 50;
+export const DEFAULT_ARRAY_SIZE = 10;
 export const MIN_ARRAY_VALUE = 5;
 export const MAX_ARRAY_VALUE = 500;
 export const ANIMATION_SPEED_DEFAULT = 200; // 设置为 200ms，即最慢执行速度（最大延迟）

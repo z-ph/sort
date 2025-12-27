@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AlgorithmType, SortStep, SortStats } from './types';
 import { DEFAULT_ARRAY_SIZE, MIN_ARRAY_VALUE, MAX_ARRAY_VALUE, ANIMATION_SPEED_DEFAULT, ALGORITHM_OPTIONS } from './constants';
 import { AlgorithmGenerators } from './services/sortingAlgorithms';
-import { parseImportFile, downloadFile, downloadSample } from './services/fileService';
+import { parseImportFile, downloadSortingHistory, downloadSample, ExportStep } from './services/fileService';
 import SortVisualizer from './components/SortVisualizer';
 import ConceptVisualizer from './components/ConceptVisualizer';
 import BenchmarkPage from './components/BenchmarkPage';
@@ -99,8 +98,15 @@ const App: React.FC = () => {
     const { value, done } = generatorRef.current.next();
     if (done) return { finished: true, value };
     if (value) {
-        if (value.comparing.length > 0) accumulatedStats.current.comparisons += 1;
-        if (value.swapping.length > 0) accumulatedStats.current.swaps += 1;
+        // 优化统计逻辑：
+        // 如果当前步涉及交换(swapping)，则优先统计为交换，不再重复统计比较次数。
+        // 只有当没有交换发生且存在比较(comparing)时，才统计为比较次数。
+        // 这修复了部分算法（如冒泡、堆排序）在交换步中保留 comparing 高亮导致比较次数虚高的问题。
+        if (value.swapping.length > 0) {
+             accumulatedStats.current.swaps += 1;
+        } else if (value.comparing.length > 0) {
+             accumulatedStats.current.comparisons += 1;
+        }
         return { finished: false, value };
     }
     return { finished: false };
@@ -188,6 +194,53 @@ const App: React.FC = () => {
     } catch (e) { alert('文件导入失败: ' + (e as Error).message); }
   };
 
+  // 生成从初始状态到结束的完整历史记录并导出
+  const handleExportHistory = (format: 'json' | 'csv' | 'txt') => {
+    // 简单的防呆保护：如果数据量太大，提醒用户
+    if (array.length > 200 && !window.confirm(`当前数组包含 ${array.length} 个元素，生成完整步骤历史可能需要较长时间并产生较大的文件。是否继续？`)) {
+        return;
+    }
+
+    const history: ExportStep[] = [];
+    
+    // 1. 添加初始状态
+    history.push({
+        stepIndex: 0,
+        description: '初始状态',
+        array: [...array]
+    });
+
+    // 2. 重新运行生成器以捕获所有步骤
+    // 注意：我们传入 array 的副本以避免修改原始状态
+    const gen = AlgorithmGenerators[algorithm]([...array]);
+    let result = gen.next();
+    let stepCount = 1;
+
+    while (!result.done) {
+        const step = result.value;
+        if (step) {
+            history.push({
+                stepIndex: stepCount++,
+                description: step.description || '',
+                array: [...step.array] // 必须复制数组
+            });
+        }
+        result = gen.next();
+    }
+    
+    // 如果生成器最后一步有值且 done 为 true (通常我们的生成器最后一步即完成态)
+    if (result.value) {
+         history.push({
+            stepIndex: stepCount++,
+            description: result.value.description || '完成',
+            array: [...result.value.array]
+        });
+    }
+
+    // 3. 触发下载
+    downloadSortingHistory(history, format, `sorting_process_${algorithm}`);
+  };
+
   const metrics = getAlgorithmMetrics(algorithm);
 
   return (
@@ -250,10 +303,10 @@ const App: React.FC = () => {
                     <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 hidden md:block" />
                     
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">结果导出:</span>
-                      <button data-tooltip-bottom="下载当前数组为 JSON" onClick={() => downloadFile(currentStep?.array || array, 'json', 'export')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-indigo-500 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"><FileJson size={18}/></button>
-                      <button data-tooltip-bottom="下载当前数组为 CSV" onClick={() => downloadFile(currentStep?.array || array, 'csv', 'export')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-indigo-500 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"><FileType size={18}/></button>
-                      <button data-tooltip-bottom="下载当前数组为 TXT" onClick={() => downloadFile(currentStep?.array || array, 'txt', 'export')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-indigo-500 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"><FileText size={18}/></button>
+                      <span className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">全过程导出:</span>
+                      <button data-tooltip-bottom="导出完整排序过程 (JSON)" onClick={() => handleExportHistory('json')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-indigo-500 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"><FileJson size={18}/></button>
+                      <button data-tooltip-bottom="导出完整排序过程 (CSV)" onClick={() => handleExportHistory('csv')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-indigo-500 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"><FileType size={18}/></button>
+                      <button data-tooltip-bottom="导出完整排序过程 (TXT)" onClick={() => handleExportHistory('txt')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-indigo-500 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"><FileText size={18}/></button>
                     </div>
                   </div>
                 </div>
