@@ -195,11 +195,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # 先拉取最新远程变更
+          git fetch origin ${{ github.ref_name }}
+          git rebase origin/${{ github.ref_name }}
+
           # 提交版本更新
           git add package.json
           git commit -m "chore(release): bump version to ${{ env.new_version }}"
 
-          # 推送提交（但不推送 tag）
+          # 推送提交
           git push origin HEAD:${{ github.ref_name }}
         shell: bash
 
