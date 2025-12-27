@@ -312,7 +312,12 @@ jobs:
           path: ./artifacts
 
       - name: Display structure
-        run: ls -R ./artifacts
+        run: |
+          echo "Artifacts structure:"
+          ls -R ./artifacts
+          echo ""
+          echo "Release notes:"
+          cat release-notes.md
 
       - name: Create Git Tag
         run: |
@@ -332,16 +337,32 @@ jobs:
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_DRAFT: ${{ needs.version.outputs.is_draft }}
+          IS_PRERELEASE: ${{ needs.version.outputs.is_pre_release }}
         run: |
           # 读取 release notes
           RELEASE_NOTES=$(cat release-notes.md)
+
+          # 构建 draft 和 prerelease 参数
+          DRAFT_ARG=""
+          if [ "$IS_DRAFT" = "true" ]; then
+            DRAFT_ARG="--draft"
+          fi
+
+          PRERELEASE_ARG=""
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            PRERELEASE_ARG="--prerelease"
+          fi
 
           # 创建 release
           gh release create "v${{ needs.version.outputs.version }}" \
             --title "📦 版本 ${{ needs.version.outputs.version }}" \
             --notes "$RELEASE_NOTES" \
-            --draft ${{ needs.version.outputs.is_draft }} \
-            --prerelease ${{ needs.version.outputs.is_pre_release }}
+            $DRAFT_ARG \
+            $PRERELEASE_ARG
+
+          echo "✅ Release created"
+        shell: bash
 
       - name: Upload assets to Release
         env:
@@ -350,11 +371,24 @@ jobs:
           # 收集所有文件
           find ./artifacts -type f \( -name "*.exe" -o -name "*.zip" \) > upload_files.txt
 
+          # 检查是否有文件
+          if [ ! -s upload_files.txt ]; then
+            echo "⚠️  No files found to upload"
+            exit 0
+          fi
+
           # 上传所有文件
+          UPLOAD_COUNT=0
           while IFS= read -r file; do
-            echo "Uploading: $file"
-            gh release upload "v${{ needs.version.outputs.version }}" "$file"
+            if [ -f "$file" ]; then
+              echo "Uploading: $file"
+              gh release upload "v${{ needs.version.outputs.version }}" "$file"
+              UPLOAD_COUNT=$((UPLOAD_COUNT + 1))
+            fi
           done < upload_files.txt
+
+          echo "✅ Uploaded $UPLOAD_COUNT files"
+        shell: bash
 
       - name: Update Release Summary
         run: |
@@ -366,3 +400,4 @@ jobs:
           echo "- **Pre-release**: ${{ needs.version.outputs.is_pre_release }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+        shell: bash
