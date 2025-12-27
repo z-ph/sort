@@ -36,6 +36,10 @@ const App: React.FC = () => {
 
   const [array, setArray] = useState<number[]>([]);
   const [arraySize, setArraySize] = useState(DEFAULT_ARRAY_SIZE);
+  // 新增：数值范围状态
+  const [minVal, setMinVal] = useState(MIN_ARRAY_VALUE);
+  const [maxVal, setMaxVal] = useState(MAX_ARRAY_VALUE);
+
   const [algorithm, setAlgorithm] = useState<AlgorithmType>(AlgorithmType.BUBBLE);
   const [speed, setSpeed] = useState(ANIMATION_SPEED_DEFAULT);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -82,12 +86,16 @@ const App: React.FC = () => {
   }, [algorithm, resetSorter, array]);
 
   const generateArray = useCallback((size: number) => {
+    // 确保 min <= max，防止用户输入错误导致报错
+    const effectiveMin = Math.min(minVal, maxVal);
+    const effectiveMax = Math.max(minVal, maxVal);
+    
     const newArray = Array.from({ length: size }, () =>
-      Math.floor(Math.random() * (MAX_ARRAY_VALUE - MIN_ARRAY_VALUE + 1) + MIN_ARRAY_VALUE)
+      Math.floor(Math.random() * (effectiveMax - effectiveMin + 1) + effectiveMin)
     );
     setArray(newArray);
     resetSorter(newArray);
-  }, [resetSorter]);
+  }, [resetSorter, minVal, maxVal]); // 添加 minVal, maxVal 依赖
 
   useEffect(() => {
     generateArray(arraySize);
@@ -187,6 +195,10 @@ const App: React.FC = () => {
     try {
       const numbers = await parseImportFile(file);
       if (numbers.length > 0) {
+        // 如果导入的数据包含比当前 Max 还没大的数，自动扩展显示范围
+        const fileMax = Math.max(...numbers);
+        if (fileMax > maxVal) setMaxVal(fileMax);
+
         setArraySize(numbers.length);
         setArray(numbers);
         resetSorter(numbers);
@@ -280,8 +292,31 @@ const App: React.FC = () => {
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-y-4 gap-x-6 rounded-t-3xl">
                   <div className="flex items-center gap-3 pr-6 border-r border-slate-200 dark:border-slate-800">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">数据中心</span>
-                    <button data-tooltip-bottom="生成一组全新的随机乱序数据" onClick={() => generateArray(arraySize)} disabled={isPlaying} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all disabled:opacity-50 shadow-sm">
-                      <Shuffle size={14} /> 随机生成
+                    
+                    {/* 数值范围输入 */}
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700">
+                      <div className="px-2 flex flex-col items-center justify-center border-r border-slate-200 dark:border-slate-700">
+                         <span className="text-[8px] font-bold text-slate-400 leading-none mb-0.5">MIN</span>
+                         <input 
+                           type="number" 
+                           value={minVal} 
+                           onChange={(e) => setMinVal(Math.max(0, parseInt(e.target.value) || 0))}
+                           className="w-10 bg-transparent text-xs font-black text-center outline-none text-slate-700 dark:text-slate-200 p-0"
+                         />
+                      </div>
+                      <div className="px-2 flex flex-col items-center justify-center">
+                         <span className="text-[8px] font-bold text-slate-400 leading-none mb-0.5">MAX</span>
+                         <input 
+                           type="number" 
+                           value={maxVal} 
+                           onChange={(e) => setMaxVal(Math.max(1, parseInt(e.target.value) || 1))} 
+                           className="w-10 bg-transparent text-xs font-black text-center outline-none text-slate-700 dark:text-slate-200 p-0"
+                         />
+                      </div>
+                    </div>
+
+                    <button data-tooltip-bottom="根据范围生成随机数据" onClick={() => generateArray(arraySize)} disabled={isPlaying} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all disabled:opacity-50 shadow-sm">
+                      <Shuffle size={14} /> 生成
                     </button>
                   </div>
 
@@ -348,7 +383,8 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 relative z-30">
                 <div className="xl:col-span-2 space-y-6">
-                  <SortVisualizer step={currentStep} maxValue={MAX_ARRAY_VALUE} algorithm={algorithm} theme={theme} />
+                  {/* 使用动态的 maxVal 确保可视化高度正确 */}
+                  <SortVisualizer step={currentStep} maxValue={Math.max(maxVal, ...array)} algorithm={algorithm} theme={theme} />
                   <ConceptVisualizer 
                     step={currentStep} algorithm={algorithm} arraySize={arraySize}
                     onPlay={() => {
