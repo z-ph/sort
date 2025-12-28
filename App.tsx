@@ -6,7 +6,7 @@ import { parseImportFile, downloadSortingHistory, downloadSample, ExportStep } f
 import SortVisualizer from './components/SortVisualizer';
 import ConceptVisualizer from './components/ConceptVisualizer';
 import BenchmarkPage from './components/BenchmarkPage';
-import { Sun, Moon, LayoutDashboard, Zap, Activity, Shuffle, Upload, Download, FileJson, FileType, FileText, Settings, RotateCcw } from 'lucide-react';
+import { Sun, Moon, LayoutDashboard, Zap, Activity, Shuffle, Upload, Download, FileJson, FileType, FileText, Settings, RotateCcw, ArrowUpNarrowWide, ArrowDownWideNarrow } from 'lucide-react';
 
 export const getAlgorithmMetrics = (type: AlgorithmType) => {
   switch (type) {
@@ -85,21 +85,31 @@ const App: React.FC = () => {
     resetSorter(array);
   }, [algorithm, resetSorter, array]);
 
-  const generateArray = useCallback((size: number) => {
+  const generateArray = useCallback((size: number, type: 'random' | 'sorted' | 'reverse' = 'random') => {
     // 确保 min <= max，防止用户输入错误导致报错
     const effectiveMin = Math.min(minVal, maxVal);
     const effectiveMax = Math.max(minVal, maxVal);
     
-    const newArray = Array.from({ length: size }, () =>
+    let newArray = Array.from({ length: size }, () =>
       Math.floor(Math.random() * (effectiveMax - effectiveMin + 1) + effectiveMin)
     );
+
+    if (type === 'sorted') {
+        newArray.sort((a, b) => a - b);
+    } else if (type === 'reverse') {
+        newArray.sort((a, b) => b - a);
+    }
+
     setArray(newArray);
     resetSorter(newArray);
   }, [resetSorter, minVal, maxVal]); // 添加 minVal, maxVal 依赖
 
+  // 修复：移除对 arraySize 的 useEffect 依赖，防止导入数据时 setArraySize 触发重新生成随机数覆盖导入内容
+  // 改为只在组件挂载时初始化一次
   useEffect(() => {
-    generateArray(arraySize);
-  }, [arraySize, generateArray]);
+    generateArray(DEFAULT_ARRAY_SIZE, 'random');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
 
   const executeSingleStep = (): { finished: boolean, value?: SortStep } => {
     if (!generatorRef.current) return { finished: true };
@@ -199,11 +209,21 @@ const App: React.FC = () => {
         const fileMax = Math.max(...numbers);
         if (fileMax > maxVal) setMaxVal(fileMax);
 
+        // 这里设置 Size 和 Array 不会因为 useEffect 冲突而被覆盖
         setArraySize(numbers.length);
         setArray(numbers);
         resetSorter(numbers);
+      } else {
+        alert('警告: 文件格式正确，但未找到有效的数值数据，或数组为空。');
       }
-    } catch (e) { alert('文件导入失败: ' + (e as Error).message); }
+    } catch (e) { 
+      alert('文件导入失败: ' + (e as Error).message); 
+    } finally {
+      // 必须重置 input value，否则无法连续选择同一个文件（例如用户修改了文件内容后再次导入）
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   // 生成从初始状态到结束的完整历史记录并导出
@@ -315,9 +335,17 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
-                    <button data-tooltip-bottom="根据范围生成随机数据" onClick={() => generateArray(arraySize)} disabled={isPlaying} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all disabled:opacity-50 shadow-sm">
-                      <Shuffle size={14} /> 生成
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button data-tooltip-bottom="生成随机数据" onClick={() => generateArray(arraySize, 'random')} disabled={isPlaying} className="flex items-center gap-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-l-xl text-xs font-black transition-all disabled:opacity-50 shadow-sm border-r border-indigo-500">
+                        <Shuffle size={14} /> 随机
+                      </button>
+                      <button data-tooltip-bottom="生成正序数据 (Best Case)" onClick={() => generateArray(arraySize, 'sorted')} disabled={isPlaying} className="flex items-center px-2 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all disabled:opacity-50 shadow-sm border-r border-indigo-500">
+                        <ArrowUpNarrowWide size={14} />
+                      </button>
+                      <button data-tooltip-bottom="生成逆序数据 (Worst Case)" onClick={() => generateArray(arraySize, 'reverse')} disabled={isPlaying} className="flex items-center px-2 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-r-xl text-xs font-bold transition-all disabled:opacity-50 shadow-sm">
+                        <ArrowDownWideNarrow size={14} />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4">
@@ -371,7 +399,21 @@ const App: React.FC = () => {
                   <div className="flex items-center gap-8 flex-1 w-full lg:w-auto">
                     <div className="flex-1 space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase block ml-1">数组规模: {arraySize}</label>
-                      <input data-tooltip={`调整元素数量: ${arraySize}`} type="range" min="10" max="1500" step="10" value={arraySize} onChange={(e) => setArraySize(Number(e.target.value))} disabled={isPlaying} className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
+                      <input 
+                        data-tooltip={`调整元素数量: ${arraySize}`} 
+                        type="range" 
+                        min="10" 
+                        max="1500" 
+                        step="10" 
+                        value={arraySize} 
+                        onChange={(e) => {
+                          const size = Number(e.target.value);
+                          setArraySize(size);
+                          generateArray(size, 'random');
+                        }} 
+                        disabled={isPlaying} 
+                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600" 
+                      />
                     </div>
                     <div className="flex-1 space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase block ml-1">执行延时: {speed}ms</label>

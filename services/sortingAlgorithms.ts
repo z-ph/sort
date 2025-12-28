@@ -269,6 +269,14 @@ function* _radixMSD(arr: number[], low: number, high: number, exp: number, clone
 
 // --- Quick Sort ---
 function* _partition(arr: number[], low: number, high: number, isBenchmark: boolean): Generator<SortStep, number, any> {
+    // FIX: Random pivot selection to prevent O(n^2) recursion depth on sorted arrays
+    const pivotIdx = Math.floor(Math.random() * (high - low + 1)) + low;
+    if (pivotIdx !== low) {
+        // Just swap without visualization step for random pivot to keep visualization clean
+        // Or visualize if desired. Let's do it implicitly to avoid cluttering comparison count.
+        [arr[low], arr[pivotIdx]] = [arr[pivotIdx], arr[low]];
+    }
+    
     const pivot = arr[low];
     let i = low + 1, j = high;
     const range = { start: low, end: high };
@@ -655,9 +663,13 @@ const pureQuickIterative = (arr: number[]): PureStats => {
     let comparisons = 0, swaps = 0;
     const stack = [0, arr.length - 1];
     while (stack.length > 0) {
-        const high = stack.pop()!;
-        const low = stack.pop()!;
+        const high = stack.pop()!, low = stack.pop()!;
         
+        // Random pivot for iterative as well to ensure O(n log n) average
+        const pivotIdx = Math.floor(Math.random() * (high - low + 1)) + low;
+        [arr[low], arr[pivotIdx]] = [arr[pivotIdx], arr[low]];
+        if (pivotIdx !== low) swaps++;
+
         const pivot = arr[low];
         let i = low + 1, j = high;
         while(true) {
@@ -697,7 +709,13 @@ const pureQuickIterative = (arr: number[]): PureStats => {
 const pureQuickRecursive = (arr: number[]): PureStats => {
     const stats = { comparisons: 0, swaps: 0 };
     const _sort = (low: number, high: number) => {
-        if (low < high) {
+        // Optimization: Use Loop for Tail Recursion to prevent Stack Overflow
+        while (low < high) {
+            // Optimization: Random Pivot to avoid O(N^2) worst case on sorted/reverse-sorted data
+            const pivotIdx = Math.floor(Math.random() * (high - low + 1)) + low;
+            [arr[low], arr[pivotIdx]] = [arr[pivotIdx], arr[low]];
+            if (pivotIdx !== low) stats.swaps++;
+
             const pivot = arr[low];
             let i = low + 1, j = high;
             while(true) {
@@ -720,8 +738,15 @@ const pureQuickRecursive = (arr: number[]): PureStats => {
             stats.swaps++;
             
             const pi = j;
-            _sort(low, pi - 1);
-            _sort(pi + 1, high);
+            
+            // Recurse on the smaller partition to guarantee O(log N) stack depth
+            if (pi - low < high - pi) {
+                _sort(low, pi - 1);
+                low = pi + 1; // Update 'low' for next iteration (Tail Call Optimization)
+            } else {
+                _sort(pi + 1, high);
+                high = pi - 1; // Update 'high' for next iteration
+            }
         }
     };
     _sort(0, arr.length - 1);

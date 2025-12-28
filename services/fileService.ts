@@ -6,22 +6,43 @@ export interface ExportStep {
 
 export const parseImportFile = async (file: File): Promise<number[]> => {
   const text = await file.text();
-  const extension = file.name.split('.').pop()?.toLowerCase();
+  
+  if (!text || text.trim().length === 0) {
+    throw new Error('文件内容为空');
+  }
 
+  const extension = file.name.split('.').pop()?.toLowerCase();
   let numbers: number[] = [];
 
   if (extension === 'json') {
     try {
       const data = JSON.parse(text);
-      numbers = Array.isArray(data) ? data : [];
+      if (!Array.isArray(data)) {
+        throw new Error('JSON 格式错误：根节点必须是一个数组 (例如 [10, 20, 30])');
+      }
+      // 过滤出有效的数字
+      numbers = data.filter((n: any) => typeof n === 'number' && !isNaN(n));
     } catch (e) {
-      throw new Error('Invalid JSON format');
+      // 如果是我们手动抛出的错误，直接向上传递
+      if ((e as Error).message.includes('JSON 格式错误')) {
+        throw e;
+      }
+      throw new Error('无效的 JSON 文件格式');
     }
   } else if (extension === 'csv') {
-    numbers = text.split(/[,\n\r]+/).map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+    // 处理 CSV: 逗号或换行符分隔
+    numbers = text.split(/[,\n\r]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0) // 移除空字符串
+      .map(s => Number(s))
+      .filter(n => !isNaN(n));
   } else {
-    // txt: space or newline separated
-    numbers = text.split(/\s+/).map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+    // 处理 TXT: 空白字符分隔 (空格, tab, 换行)
+    numbers = text.split(/\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+      .map(s => Number(s))
+      .filter(n => !isNaN(n));
   }
 
   return numbers;

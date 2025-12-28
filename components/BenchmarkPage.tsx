@@ -10,6 +10,9 @@ const BenchmarkPage: React.FC = () => {
   const [results, setResults] = useState<SortStats[]>([]);
   const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [benchmarkSize, setBenchmarkSize] = useState(1000);
+  const [minVal, setMinVal] = useState(0);
+  const [maxVal, setMaxVal] = useState(10000);
+  const [distribution, setDistribution] = useState<'random' | 'sorted' | 'reverse'>('random');
   const [currentRunning, setCurrentRunning] = useState<AlgorithmType | null>(null);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   
@@ -31,9 +34,18 @@ const BenchmarkPage: React.FC = () => {
     abortRef.current = false;
     
     // 1. 预先生成统一的随机数据，保证公平性
-    const baseArray = Array.from({ length: benchmarkSize }, () => 
-      Math.floor(Math.random() * 10000)
+    const effectiveMin = Math.min(minVal, maxVal);
+    const effectiveMax = Math.max(minVal, maxVal);
+    
+    let baseArray = Array.from({ length: benchmarkSize }, () => 
+      Math.floor(Math.random() * (effectiveMax - effectiveMin + 1) + effectiveMin)
     );
+
+    if (distribution === 'sorted') {
+        baseArray.sort((a, b) => a - b);
+    } else if (distribution === 'reverse') {
+        baseArray.sort((a, b) => b - a);
+    }
 
     try {
       // 2. 使用异步循环进行任务调度
@@ -106,7 +118,7 @@ const BenchmarkPage: React.FC = () => {
               测试配置
             </h3>
             
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
                   样本数据规模: <span className="text-indigo-600 font-bold">{benchmarkSize}</span>
@@ -125,17 +137,68 @@ const BenchmarkPage: React.FC = () => {
                   <span>100</span>
                   <span>100,000</span>
                 </div>
-                {benchmarkSize > 5000 && (
-                  <p className="text-[10px] text-orange-500 mt-2">
-                    警告：10万级别数据量下，O(n²) 算法（如冒泡/插入/选择）可能会导致浏览器卡顿数秒甚至更久，建议仅用于测试对数级算法。
-                  </p>
-                )}
-                {benchmarkSize <= 5000 && benchmarkSize > 2000 && (
-                  <p className="text-[10px] text-orange-500 mt-2">
-                    注意：规模较大时，O(n²) 算法（如冒泡排序）耗时可能较长，但系统会保持响应。
-                  </p>
-                )}
               </div>
+
+              {/* 数据分布选择 */}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+                  数据分布特征
+                </label>
+                <select 
+                  value={distribution}
+                  onChange={(e) => setDistribution(e.target.value as 'random' | 'sorted' | 'reverse')}
+                  disabled={isBenchmarking}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
+                >
+                  <option value="random">随机分布 (Random)</option>
+                  <option value="sorted">完全正序 (Sorted)</option>
+                  <option value="reverse">完全逆序 (Reverse)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1.5 leading-tight">
+                  提示: 逆序数据可用于测试插入排序的最坏情况 O(n²) 或快速排序在特定基准下的性能瓶颈。
+                </p>
+              </div>
+
+              {/* 数值范围配置 */}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+                  数据数值范围
+                </label>
+                <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Min</span>
+                        <input 
+                            type="number" 
+                            value={minVal} 
+                            onChange={(e) => setMinVal(parseInt(e.target.value) || 0)}
+                            disabled={isBenchmarking}
+                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
+                        />
+                    </div>
+                    <div className="text-slate-300 font-bold pt-4">-</div>
+                    <div className="flex-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Max</span>
+                        <input 
+                            type="number" 
+                            value={maxVal} 
+                            onChange={(e) => setMaxVal(parseInt(e.target.value) || 0)}
+                            disabled={isBenchmarking}
+                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
+                        />
+                    </div>
+                </div>
+              </div>
+
+              {/* 警告信息 */}
+              {(benchmarkSize > 5000 || benchmarkSize <= 5000) && (
+                  <div className="bg-orange-50 dark:bg-orange-900/10 p-3 rounded-xl border border-orange-100 dark:border-orange-900/30">
+                     <p className="text-[10px] text-orange-600 dark:text-orange-400 leading-relaxed">
+                        {benchmarkSize > 5000 
+                            ? "警告：10万级别数据量下，O(n²) 算法（如冒泡/插入）可能会导致浏览器短暂卡顿，建议仅测试对数级算法。" 
+                            : "注意：测试期间请勿刷新页面。O(n²) 算法在数据量较大时耗时会显著增加。"}
+                     </p>
+                  </div>
+              )}
 
               <div className="pt-4 border-t dark:border-slate-700 space-y-2">
                 {!isBenchmarking ? (
