@@ -5,10 +5,21 @@ export interface ExportStep {
 }
 
 export const parseImportFile = async (file: File): Promise<number[]> => {
-  const text = await file.text();
+  // 1. 最优先检查：文件大小
+  if (file.size === 0) {
+    throw new Error('文件为空 (0 KB)，请检查文件内容。');
+  }
+
+  let text = '';
+  try {
+    text = await file.text();
+  } catch (readError) {
+    throw new Error('无法读取文件内容，可能是文件权限问题或文件损坏。');
+  }
   
+  // 2. 二次检查：内容是否全为空白
   if (!text || text.trim().length === 0) {
-    throw new Error('文件内容为空');
+    throw new Error('文件内容为空白，未包含任何数据。');
   }
 
   const extension = file.name.split('.').pop()?.toLowerCase();
@@ -18,16 +29,21 @@ export const parseImportFile = async (file: File): Promise<number[]> => {
     try {
       const data = JSON.parse(text);
       if (!Array.isArray(data)) {
-        throw new Error('JSON 格式错误：根节点必须是一个数组 (例如 [10, 20, 30])');
+        throw new Error('JSON 格式不符合要求：根节点必须是一个数组 (例如 [10, 20, 30])');
       }
       // 过滤出有效的数字
       numbers = data.filter((n: any) => typeof n === 'number' && !isNaN(n));
-    } catch (e) {
-      // 如果是我们手动抛出的错误，直接向上传递
-      if ((e as Error).message.includes('JSON 格式错误')) {
-        throw e;
+      
+      if (numbers.length === 0 && data.length > 0) {
+         throw new Error('JSON 数组中未找到有效的数值数据。');
       }
-      throw new Error('无效的 JSON 文件格式');
+    } catch (e: any) {
+      // 捕获所有 JSON 解析错误并重新包装，确保 UI 层能接收到清晰的消息
+      if (e instanceof SyntaxError) {
+         throw new Error(`非法 JSON 文件: 语法解析错误 (${e.message})`);
+      }
+      // 传递手动抛出的业务错误
+      throw e; 
     }
   } else if (extension === 'csv') {
     // 处理 CSV: 逗号或换行符分隔

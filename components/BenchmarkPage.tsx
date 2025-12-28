@@ -5,8 +5,10 @@ import { getAlgorithmMetrics } from '../App';
 import { runBenchmarkAsync } from '../services/sortingAlgorithms';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { Play, RotateCcw, BarChart3, Clock, Zap, Info, Square, Loader2 } from 'lucide-react';
+import { useToast } from './Toast';
 
 const BenchmarkPage: React.FC = () => {
+  const toast = useToast();
   const [results, setResults] = useState<SortStats[]>([]);
   const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [benchmarkSize, setBenchmarkSize] = useState(1000);
@@ -83,12 +85,13 @@ const BenchmarkPage: React.FC = () => {
         setResults(prev => [...prev, result]);
         setProgress({ current: i + 1, total: ALGORITHM_OPTIONS.length });
       }
+      toast.success('所有基准测试已完成！');
     } catch (err: any) {
       if (err.message === "Benchmark Aborted") {
-          console.log("Benchmark was aborted by user.");
+          toast.info("测试已手动停止");
       } else {
           console.error("Benchmark execution failed:", err);
-          alert("测试过程发生错误: " + err.message);
+          toast.error("测试过程发生错误: " + err.message);
       }
     } finally {
       setIsBenchmarking(false);

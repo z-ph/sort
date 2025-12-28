@@ -6,6 +6,7 @@ import { parseImportFile, downloadSortingHistory, downloadSample, ExportStep } f
 import SortVisualizer from './components/SortVisualizer';
 import ConceptVisualizer from './components/ConceptVisualizer';
 import BenchmarkPage from './components/BenchmarkPage';
+import { ToastProvider, useToast } from './components/Toast';
 import { Sun, Moon, LayoutDashboard, Zap, Activity, Shuffle, Upload, Download, FileJson, FileType, FileText, Settings, RotateCcw, ArrowUpNarrowWide, ArrowDownWideNarrow } from 'lucide-react';
 
 export const getAlgorithmMetrics = (type: AlgorithmType) => {
@@ -27,7 +28,8 @@ export const getAlgorithmMetrics = (type: AlgorithmType) => {
   }
 };
 
-const App: React.FC = () => {
+const SortingLab: React.FC = () => {
+  const toast = useToast(); // 使用自定义 Toast Hook
   const [view, setView] = useState<'home' | 'benchmark'>('home');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
@@ -36,7 +38,6 @@ const App: React.FC = () => {
 
   const [array, setArray] = useState<number[]>([]);
   const [arraySize, setArraySize] = useState(DEFAULT_ARRAY_SIZE);
-  // 新增：数值范围状态
   const [minVal, setMinVal] = useState(MIN_ARRAY_VALUE);
   const [maxVal, setMaxVal] = useState(MAX_ARRAY_VALUE);
 
@@ -80,13 +81,11 @@ const App: React.FC = () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // 关键修复：当切换算法时，自动重置当前演示状态
   useEffect(() => {
     resetSorter(array);
   }, [algorithm, resetSorter, array]);
 
   const generateArray = useCallback((size: number, type: 'random' | 'sorted' | 'reverse' = 'random') => {
-    // 确保 min <= max，防止用户输入错误导致报错
     const effectiveMin = Math.min(minVal, maxVal);
     const effectiveMax = Math.max(minVal, maxVal);
     
@@ -102,10 +101,8 @@ const App: React.FC = () => {
 
     setArray(newArray);
     resetSorter(newArray);
-  }, [resetSorter, minVal, maxVal]); // 添加 minVal, maxVal 依赖
+  }, [resetSorter, minVal, maxVal]);
 
-  // 修复：移除对 arraySize 的 useEffect 依赖，防止导入数据时 setArraySize 触发重新生成随机数覆盖导入内容
-  // 改为只在组件挂载时初始化一次
   useEffect(() => {
     generateArray(DEFAULT_ARRAY_SIZE, 'random');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,10 +113,6 @@ const App: React.FC = () => {
     const { value, done } = generatorRef.current.next();
     if (done) return { finished: true, value };
     if (value) {
-        // 优化统计逻辑：
-        // 如果当前步涉及交换(swapping)，则优先统计为交换，不再重复统计比较次数。
-        // 只有当没有交换发生且存在比较(comparing)时，才统计为比较次数。
-        // 这修复了部分算法（如冒泡、堆排序）在交换步中保留 comparing 高亮导致比较次数虚高的问题。
         if (value.swapping.length > 0) {
              accumulatedStats.current.swaps += 1;
         } else if (value.comparing.length > 0) {
@@ -209,41 +202,38 @@ const App: React.FC = () => {
         const fileMax = Math.max(...numbers);
         if (fileMax > maxVal) setMaxVal(fileMax);
 
-        // 这里设置 Size 和 Array 不会因为 useEffect 冲突而被覆盖
         setArraySize(numbers.length);
         setArray(numbers);
         resetSorter(numbers);
+        
+        toast.success(`成功导入 ${numbers.length} 个数据`);
       } else {
-        alert('警告: 文件格式正确，但未找到有效的数值数据，或数组为空。');
+        toast.warning('文件已读取，但未解析出有效的数值数据，请检查格式。');
       }
-    } catch (e) { 
-      alert('文件导入失败: ' + (e as Error).message); 
+    } catch (e: any) { 
+      const errorMessage = e instanceof Error ? e.message : (typeof e === 'string' ? e : '发生未知错误');
+      // 使用 toast.error 替代 alert
+      toast.error(`导入失败: ${errorMessage}`); 
     } finally {
-      // 必须重置 input value，否则无法连续选择同一个文件（例如用户修改了文件内容后再次导入）
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
   };
 
-  // 生成从初始状态到结束的完整历史记录并导出
   const handleExportHistory = (format: 'json' | 'csv' | 'txt') => {
-    // 简单的防呆保护：如果数据量太大，提醒用户
     if (array.length > 200 && !window.confirm(`当前数组包含 ${array.length} 个元素，生成完整步骤历史可能需要较长时间并产生较大的文件。是否继续？`)) {
         return;
     }
 
     const history: ExportStep[] = [];
     
-    // 1. 添加初始状态
     history.push({
         stepIndex: 0,
         description: '初始状态',
         array: [...array]
     });
 
-    // 2. 重新运行生成器以捕获所有步骤
-    // 注意：我们传入 array 的副本以避免修改原始状态
     const gen = AlgorithmGenerators[algorithm]([...array]);
     let result = gen.next();
     let stepCount = 1;
@@ -254,13 +244,12 @@ const App: React.FC = () => {
             history.push({
                 stepIndex: stepCount++,
                 description: step.description || '',
-                array: [...step.array] // 必须复制数组
+                array: [...step.array] 
             });
         }
         result = gen.next();
     }
     
-    // 如果生成器最后一步有值且 done 为 true (通常我们的生成器最后一步即完成态)
     if (result.value) {
          history.push({
             stepIndex: stepCount++,
@@ -269,8 +258,8 @@ const App: React.FC = () => {
         });
     }
 
-    // 3. 触发下载
     downloadSortingHistory(history, format, `sorting_process_${algorithm}`);
+    toast.success('导出成功！已开始下载');
   };
 
   const metrics = getAlgorithmMetrics(algorithm);
@@ -306,14 +295,13 @@ const App: React.FC = () => {
         <main>
           {view === 'home' ? (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {/* 控制面板：移除所有 overflow 限制 */}
+              {/* 控制面板 */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 relative z-40">
-                {/* 第一行：数据管理与导入示例 */}
+                {/* 第一行 */}
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-y-4 gap-x-6 rounded-t-3xl">
                   <div className="flex items-center gap-3 pr-6 border-r border-slate-200 dark:border-slate-800">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">数据中心</span>
                     
-                    {/* 数值范围输入 */}
                     <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700">
                       <div className="px-2 flex flex-col items-center justify-center border-r border-slate-200 dark:border-slate-700">
                          <span className="text-[8px] font-bold text-slate-400 leading-none mb-0.5">MIN</span>
@@ -374,7 +362,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 第二行：算法策略 */}
+                {/* 第二行 */}
                 <div className="p-4 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col lg:flex-row items-center gap-8 rounded-b-3xl">
                   <div className="flex items-center gap-4 flex-1 w-full lg:w-auto">
                     <div className="flex items-center gap-2 shrink-0">
@@ -425,7 +413,6 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 relative z-30">
                 <div className="xl:col-span-2 space-y-6">
-                  {/* 使用动态的 maxVal 确保可视化高度正确 */}
                   <SortVisualizer step={currentStep} maxValue={Math.max(maxVal, ...array)} algorithm={algorithm} theme={theme} />
                   <ConceptVisualizer 
                     step={currentStep} algorithm={algorithm} arraySize={arraySize}
@@ -472,6 +459,15 @@ const App: React.FC = () => {
         </main>
       </div>
     </div>
+  );
+};
+
+// 包装组件以提供 Context
+const App: React.FC = () => {
+  return (
+    <ToastProvider>
+      <SortingLab />
+    </ToastProvider>
   );
 };
 
