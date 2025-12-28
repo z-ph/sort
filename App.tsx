@@ -7,7 +7,7 @@ import SortVisualizer from './components/SortVisualizer';
 import ConceptVisualizer from './components/ConceptVisualizer';
 import BenchmarkPage from './components/BenchmarkPage';
 import { ToastProvider, useToast } from './components/Toast';
-import { Sun, Moon, LayoutDashboard, Zap, Activity, Shuffle, Upload, Download, FileJson, FileType, FileText, Settings, RotateCcw, ArrowUpNarrowWide, ArrowDownWideNarrow } from 'lucide-react';
+import { Sun, Moon, LayoutDashboard, Zap, Activity, Shuffle, Upload, Download, FileJson, FileType, FileText, Settings, RotateCcw, ArrowUpNarrowWide, ArrowDownWideNarrow, User, GraduationCap } from 'lucide-react';
 
 export const getAlgorithmMetrics = (type: AlgorithmType) => {
   switch (type) {
@@ -272,13 +272,29 @@ const SortingLab: React.FC = () => {
             <div className="p-3 bg-indigo-600 rounded-xl text-white shadow-lg">
               <Activity size={24} strokeWidth={2.5} />
             </div>
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">排序算法实验室</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Sorting Algorithm Professional Lab</p>
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">排序算法实验室</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-2">Sorting Algorithm Professional Lab</p>
+              
+              {/* 设计者信息区域 */}
+              <div className="flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-left-4 duration-700">
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] px-2.5 py-1 rounded-md font-bold shadow-md shadow-indigo-200 dark:shadow-none flex items-center gap-1.5">
+                  <GraduationCap size={12} strokeWidth={3} />
+                  24级软件工程卓越班
+                </div>
+                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 rounded-md shadow-sm">
+                   <div className="flex items-center gap-1">
+                      <User size={10} className="text-slate-400" />
+                      <span className="text-[11px] font-black text-slate-700 dark:text-slate-200">张鹏辉</span>
+                   </div>
+                   <span className="w-px h-3 bg-slate-200 dark:bg-slate-600"></span>
+                   <span className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500 tracking-wide">3124004303</span>
+                </div>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm self-start md:self-center">
             <button data-tooltip-bottom="可视化动画演示" onClick={() => setView('home')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${view === 'home' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
               <LayoutDashboard size={18} />可视化
             </button>
