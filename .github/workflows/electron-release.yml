@@ -213,19 +213,43 @@ jobs:
           OTHER_PLACEHOLDER
 
           ### 📥 下载说明
-          - **Windows**: 下载 `.exe` 安装程序，运行安装
+          - **Windows**: 下载 `.exe` 文件，直接运行
           EOF
 
-          # 替换占位符
-          sed -i "s/NEW_VERSION_PLACEHOLDER/${{ env.new_version }}/" ${{ github.workspace }}/release-notes.md
-          sed -i "s/DATE_PLACEHOLDER/$(date -u +"%Y-%m-%d %H:%M:%S UTC")/" ${{ github.workspace }}/release-notes.md
-          sed -i "s|FEAT_PLACEHOLDER|${FEAT_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
-          sed -i "s|FIX_PLACEHOLDER|${FIX_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
-          sed -i "s|PERF_PLACEHOLDER|${PERF_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
-          sed -i "s|REFACTOR_PLACEHOLDER|${REFACTOR_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
-          sed -i "s|DOCS_PLACEHOLDER|${DOCS_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
-          sed -i "s|CHORE_PLACEHOLDER|${CHORE_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
-          sed -i "s|OTHER_PLACEHOLDER|${OTHER_COMMITS:-无}|" ${{ github.workspace }}/release-notes.md
+          # 替换占位符（避免 sed 在特殊字符时出错）
+          export NEW_VERSION="${{ env.new_version }}"
+          python - <<'PY'
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import os
+
+          ws = Path(os.environ["GITHUB_WORKSPACE"])
+          notes_path = ws / "release-notes.md"
+
+          def read_commits(name: str) -> str:
+              p = ws / name
+              if not p.exists():
+                  return "无"
+              text = p.read_text(encoding="utf-8").strip()
+              return text if text else "无"
+
+          replacements = {
+              "NEW_VERSION_PLACEHOLDER": os.environ.get("NEW_VERSION", ""),
+              "DATE_PLACEHOLDER": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+              "FEAT_PLACEHOLDER": read_commits("feat-commits.txt"),
+              "FIX_PLACEHOLDER": read_commits("fix-commits.txt"),
+              "PERF_PLACEHOLDER": read_commits("perf-commits.txt"),
+              "REFACTOR_PLACEHOLDER": read_commits("refactor-commits.txt"),
+              "DOCS_PLACEHOLDER": read_commits("docs-commits.txt"),
+              "CHORE_PLACEHOLDER": read_commits("chore-commits.txt"),
+              "OTHER_PLACEHOLDER": read_commits("other-commits.txt"),
+          }
+
+          text = notes_path.read_text(encoding="utf-8")
+          for key, value in replacements.items():
+              text = text.replace(key, value)
+          notes_path.write_text(text, encoding="utf-8")
+          PY
 
           echo "✅ Release notes created"
         shell: bash
@@ -242,12 +266,28 @@ jobs:
           这是排序算法综合演示系统的首个版本！
 
           ### 📥 下载说明
-          - **Windows**: 下载 `.exe` 安装程序，运行安装
+          - **Windows**: 下载 `.exe` 文件，直接运行
           EOF
 
-          # 替换占位符
-          sed -i "s/NEW_VERSION_PLACEHOLDER/${{ env.new_version }}/" ${{ github.workspace }}/release-notes.md
-          sed -i "s/DATE_PLACEHOLDER/$(date -u +"%Y-%m-%d %H:%M:%S UTC")/" ${{ github.workspace }}/release-notes.md
+          # 替换占位符（避免 sed 在特殊字符时出错）
+          export NEW_VERSION="${{ env.new_version }}"
+          python - <<'PY'
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import os
+
+          ws = Path(os.environ["GITHUB_WORKSPACE"])
+          notes_path = ws / "release-notes.md"
+          replacements = {
+              "NEW_VERSION_PLACEHOLDER": os.environ.get("NEW_VERSION", ""),
+              "DATE_PLACEHOLDER": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+          }
+
+          text = notes_path.read_text(encoding="utf-8")
+          for key, value in replacements.items():
+              text = text.replace(key, value)
+          notes_path.write_text(text, encoding="utf-8")
+          PY
 
           echo "✅ First release notes created"
         shell: bash
