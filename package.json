@@ -54,7 +54,7 @@
       "artifactName": "sort-visualizer-${version}-${arch}.${ext}",
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": [
             "x64",
             "arm64",
