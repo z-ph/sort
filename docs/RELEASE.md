@@ -25,7 +25,7 @@ GitHub Actions 工作流分为三个独立的 Job，解决了竞态条件问题�
 3. **Job 3: release** - 创建 GitHub Release
    - 下载所有构建产物
    - 创建 GitHub Release
-   - 上传所有平台的安装包
+   - 上传所有平台的发布产物
 
 ### 关键改进
 
@@ -126,7 +126,7 @@ pnpm run version:bump major
 
 #### Job 2: 多平台构建（并行执行）
 
-为三个平台同时构建安装包：
+为三个平台同时构建发布产物：
 
 **macOS**
 - 构建类型：DMG
@@ -134,8 +134,8 @@ pnpm run version:bump major
 - 支持代码签名
 
 **Windows**
-- 构建类型：Portable (x64, ia32)
-- 输出：`release/sort-visualizer-{version}-x64.exe`
+- 构建类型：Portable 便携版 (x64, arm64, ia32)
+- 输出：`release/sort-visualizer-{version}-x64.exe` / `release/sort-visualizer-{version}-arm64.exe` / `release/sort-visualizer-{version}-ia32.exe`
 - 支持代码签名
 
 **Linux**
@@ -146,11 +146,11 @@ pnpm run version:bump major
 
 1. **下载构建产物**：从所有平台下载 artifacts
 2. **创建 GitHub Release**：自动创建 Release 并上传 Release Notes
-3. **上传安装包**：将所有平台的安装包上传到 Release
+3. **上传发布产物**：将所有平台的发布产物上传到 Release
 
 ### 构建产物
 
-所有平台的安装包都会：
+所有平台的发布产物都会：
 - 上传到 GitHub Artifacts（保留 30 天）
 - 上传到 GitHub Releases（永久保留）
 
@@ -170,7 +170,7 @@ pnpm run version:bump major
 
 ### 📥 下载说明
 - **macOS**: 下载 `.dmg` 文件，双击安装
-- **Windows**: 下载 `.exe` 文件，运行安装
+- **Windows**: 下载 `.exe` 文件，直接运行
 - **Linux**: 下载 `.AppImage` 或 `.deb` 文件
 ```
 
@@ -227,7 +227,7 @@ pnpm run electron:build --win
 # 仅打包 Linux
 pnpm run electron:build --linux
 
-# 打包完成后，安装包在 release/ 目录下
+# 打包完成后，发布产物在 release/ 目录下
 ```
 
 ## 性能优化
