@@ -278,7 +278,7 @@ jobs:
 
           # 先拉取最新远程变更
           git fetch origin ${{ github.ref_name }}
-          git rebase origin/${{ github.ref_name }}
+          git rebase --autostash origin/${{ github.ref_name }}
 
           # 提交版本更新
           git add package.json
