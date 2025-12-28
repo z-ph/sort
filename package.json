@@ -44,12 +44,6 @@
     "directories": {
       "output": "release"
     },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "category": "public.app-category.education"
-    },
     "win": {
       "artifactName": "sort-visualizer-${version}-${arch}.${ext}",
       "target": [
@@ -62,16 +56,6 @@
           ]
         }
       ]
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb",
-        "rpm"
-      ],
-      "category": "Education",
-      "artifactName": "sort-visualizer-${version}-${arch}.${ext}",
-      "synopsis": "排序算法综合演示系统"
     }
   }
 }
