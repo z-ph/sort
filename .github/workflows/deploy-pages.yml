@@ -6,7 +6,13 @@ on:
         required: false
         type: string
         default: prod
-
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        required: false
+        type: string
+        default: prod
+        description: 'The deployment reference to use (default: prod)'
 # 设置 GITHUB_TOKEN 的权限，以允许部署到 GitHub Pages
 permissions:
   contents: read
