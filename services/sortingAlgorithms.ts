@@ -40,11 +40,8 @@ export function* bubbleSort(array: number[], isBenchmark: boolean = false): Gene
       }
     }
     sortedIndices.push(n - i - 1);
-    // Removed "Element settled" step as requested
     
     if (!swapped && i < n - 1) {
-         // If no swaps occurred, the rest is sorted. 
-         // Removed "Array sorted" intermediate step as requested.
          return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
     }
   }
@@ -70,7 +67,6 @@ export function* selectionSort(array: number[], isBenchmark: boolean = false): G
       [arr[i], arr[minIdx]] = [arr[minIdx], arr[i]];
       yield createStep(arr, [i, minIdx], [i, minIdx], sortedIndices, isBenchmark ? '' : `本轮结束: 将最小值 ${arr[i]} 交换到位置 ${i}`, isBenchmark ? undefined : { minIdx: i }, isBenchmark);
     } 
-    // Removed "Already in place" step as requested
     
     sortedIndices.push(i);
   }
@@ -86,15 +82,19 @@ export function* insertionSort(array: number[], isBenchmark: boolean = false): G
     let key = arr[i];
     let j = i - 1;
     const getSortedRange = (len: number) => isBenchmark ? [] : Array.from({length: len}, (_, k) => k);
-    yield createStep(arr, [i], [], getSortedRange(i), isBenchmark ? '' : `取牌: 将 ${key} (索引 ${i}) 作为待插入元素`, isBenchmark ? undefined : { keyIdx: i }, isBenchmark);
+    
+    // 步骤：取出 Key
+    yield createStep(arr, [i], [], getSortedRange(i), isBenchmark ? '' : `暂存: 将 ${key} 保存到辅助变量 Key 中`, isBenchmark ? undefined : { keyIdx: i, val: key }, isBenchmark);
+    
     while (j >= 0 && arr[j] > key) {
-      yield createStep(arr, [j], [], getSortedRange(i), isBenchmark ? '' : `比较: ${arr[j]} > ${key}，需要后移`, isBenchmark ? undefined : { keyIdx: j + 1 }, isBenchmark);
+      yield createStep(arr, [j], [], getSortedRange(i), isBenchmark ? '' : `比较: ${arr[j]} > Key(${key})，需要后移`, isBenchmark ? undefined : { keyIdx: j + 1, val: key }, isBenchmark);
       arr[j + 1] = arr[j];
-      yield createStep(arr, [], [j+1], getSortedRange(i), isBenchmark ? '' : `移动: ${arr[j]} 后移到 ${j+1}`, isBenchmark ? undefined : { keyIdx: j }, isBenchmark);
+      // 关键：在移动过程中，传递 val: key 以便前端显示
+      yield createStep(arr, [], [j+1], getSortedRange(i), isBenchmark ? '' : `移动: 将 ${arr[j]} 覆盖到位置 ${j+1} (Key值 ${key} 仍在变量中)`, isBenchmark ? undefined : { keyIdx: j, val: key }, isBenchmark);
       j = j - 1;
     }
     arr[j + 1] = key;
-    yield createStep(arr, [], [j+1], getSortedRange(i+1), isBenchmark ? '' : `插入: 将 ${key} 放入位置 ${j+1}`, isBenchmark ? undefined : { keyIdx: j + 1 }, isBenchmark);
+    yield createStep(arr, [], [j+1], getSortedRange(i+1), isBenchmark ? '' : `插入: 将辅助变量 Key(${key}) 放入位置 ${j+1}`, isBenchmark ? undefined : { keyIdx: j + 1, val: key }, isBenchmark);
   }
   return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
 }
@@ -106,19 +106,20 @@ export function* binaryInsertionSort(array: number[], isBenchmark: boolean = fal
     for (let i = 1; i < n; i++) {
         let x = arr[i];
         let left = 0, right = i - 1;
-        yield createStep(arr, [i], [], [], isBenchmark ? '' : `选择 ${x} 准备插入`, isBenchmark ? undefined : { keyIdx: i }, isBenchmark);
+        yield createStep(arr, [i], [], [], isBenchmark ? '' : `暂存: 将 ${x} 保存到辅助变量 x 中`, isBenchmark ? undefined : { keyIdx: i, val: x }, isBenchmark);
+        
         while (left <= right) {
             let mid = Math.floor((left + right) / 2);
-            yield createStep(arr, [mid], [], [], isBenchmark ? '' : `二分查找: 比较 ${x} 与 ${arr[mid]}`, isBenchmark ? undefined : { keyIdx: i }, isBenchmark);
+            yield createStep(arr, [mid], [], [], isBenchmark ? '' : `二分查找: 比较 Aux(${x}) 与 ${arr[mid]}`, isBenchmark ? undefined : { keyIdx: i, val: x }, isBenchmark);
             if (x < arr[mid]) right = mid - 1;
             else left = mid + 1;
         }
         for (let j = i - 1; j >= left; j--) {
             arr[j + 1] = arr[j];
-            yield createStep(arr, [], [j+1, j], [], isBenchmark ? '' : `向右移动 ${arr[j]}`, isBenchmark ? undefined : { keyIdx: left }, isBenchmark);
+            yield createStep(arr, [], [j+1, j], [], isBenchmark ? '' : `后移: ${arr[j]} -> ${j+1} (Aux=${x})`, isBenchmark ? undefined : { keyIdx: left, val: x }, isBenchmark);
         }
         arr[left] = x;
-        yield createStep(arr, [], [left], [], isBenchmark ? '' : `在索引 ${left} 处插入 ${x}`, isBenchmark ? undefined : { keyIdx: left }, isBenchmark);
+        yield createStep(arr, [], [left], [], isBenchmark ? '' : `插入: 将 Aux(${x}) 放入索引 ${left}`, isBenchmark ? undefined : { keyIdx: left, val: x }, isBenchmark);
     }
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
 }
@@ -132,16 +133,16 @@ export function* shellSort(array: number[], isBenchmark: boolean = false): Gener
         for (let i = gap; i < n; i++) {
             let temp = arr[i];
             let j;
-            yield createStep(arr, [i], [], [], isBenchmark ? '' : `增量 ${gap}: 选择 ${temp} 准备插入`, isBenchmark ? undefined : { gap }, isBenchmark);
+            yield createStep(arr, [i], [], [], isBenchmark ? '' : `增量 ${gap}: 暂存 ${temp} 到辅助变量`, isBenchmark ? undefined : { gap, val: temp }, isBenchmark);
             for (j = i; j >= gap; j -= gap) {
-                 yield createStep(arr, [j - gap], [], [], isBenchmark ? '' : `增量 ${gap}: 比较 ${temp} 与 ${arr[j-gap]}`, isBenchmark ? undefined : { gap }, isBenchmark);
+                 yield createStep(arr, [j - gap], [], [], isBenchmark ? '' : `增量 ${gap}: 比较 Aux(${temp}) 与 ${arr[j-gap]}`, isBenchmark ? undefined : { gap, val: temp }, isBenchmark);
                  if (arr[j - gap] > temp) {
                      arr[j] = arr[j - gap];
-                     yield createStep(arr, [j, j-gap], [j, j-gap], [], isBenchmark ? '' : `增量 ${gap}: 移动 ${arr[j-gap]} 到位置 ${j}`, isBenchmark ? undefined : { gap }, isBenchmark);
+                     yield createStep(arr, [j, j-gap], [j, j-gap], [], isBenchmark ? '' : `增量 ${gap}: 移动 ${arr[j-gap]} 到位置 ${j}`, isBenchmark ? undefined : { gap, val: temp }, isBenchmark);
                  } else break;
             }
             arr[j] = temp;
-            yield createStep(arr, [], [j], [], isBenchmark ? '' : `增量 ${gap}: 在 ${j} 处插入 ${temp}`, isBenchmark ? undefined : { gap }, isBenchmark);
+            yield createStep(arr, [], [j], [], isBenchmark ? '' : `增量 ${gap}: 将 Aux(${temp}) 插入到 ${j}`, isBenchmark ? undefined : { gap, val: temp }, isBenchmark);
         }
     }
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
@@ -269,11 +270,8 @@ function* _radixMSD(arr: number[], low: number, high: number, exp: number, clone
 
 // --- Quick Sort ---
 function* _partition(arr: number[], low: number, high: number, isBenchmark: boolean): Generator<SortStep, number, any> {
-    // FIX: Random pivot selection to prevent O(n^2) recursion depth on sorted arrays
     const pivotIdx = Math.floor(Math.random() * (high - low + 1)) + low;
     if (pivotIdx !== low) {
-        // Just swap without visualization step for random pivot to keep visualization clean
-        // Or visualize if desired. Let's do it implicitly to avoid cluttering comparison count.
         [arr[low], arr[pivotIdx]] = [arr[pivotIdx], arr[low]];
     }
     
@@ -291,14 +289,11 @@ function* _partition(arr: number[], low: number, high: number, isBenchmark: bool
              j--;
         }
         if (i < j) {
-             // Removing comparing=[i, j] to avoid counting this setup step as a comparison.
-             // Visualizer will still show pointers i and j.
              yield createStep(arr, [], [], [], `准备交换 ${arr[i]} 和 ${arr[j]}`, { range, pivot: low, pointers: { i, j } }, isBenchmark);
              [arr[i], arr[j]] = [arr[j], arr[i]];
              yield createStep(arr, [i, j], [i, j], [], `交换完成`, { range, pivot: low, pointers: { i, j } }, isBenchmark);
         } else break;
     }
-    // Removing comparing=[low, j] to avoid counting this setup step as a comparison
     yield createStep(arr, [], [], [], `准备将基准值归位`, { range, pivot: low, pointers: { i, j } }, isBenchmark);
     [arr[low], arr[j]] = [arr[j], arr[low]];
     yield createStep(arr, [j], [j], [], `基准值已归位`, { range, pivot: j, pointers: { i, j } }, isBenchmark);
@@ -421,6 +416,8 @@ export const AlgorithmGenerators: Record<AlgorithmType, (array: number[], isBenc
 
 interface PureStats { comparisons: number; swaps: number; }
 
+// Optimize: Use temp variable swap instead of destructuring [a,b] = [b,a] 
+// to avoid overhead in high-frequency loops (like Bubble Sort O(n^2) swaps)
 const pureBubble = (arr: number[]): PureStats => {
     let comparisons = 0, swaps = 0;
     const n = arr.length;
@@ -429,7 +426,9 @@ const pureBubble = (arr: number[]): PureStats => {
         for (let j = 0; j < n - i - 1; j++) {
             comparisons++;
             if (arr[j] > arr[j + 1]) {
-                [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+                const temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
                 swapped = true;
                 swaps++;
             }
@@ -449,7 +448,9 @@ const pureSelection = (arr: number[]): PureStats => {
             if (arr[j] < arr[minIdx]) minIdx = j;
         }
         if (minIdx !== i) {
-            [arr[i], arr[minIdx]] = [arr[minIdx], arr[i]];
+            const temp = arr[i];
+            arr[i] = arr[minIdx];
+            arr[minIdx] = temp;
             swaps++;
         }
     }
@@ -635,7 +636,9 @@ const pureHeap = (arr: number[]): PureStats => {
             }
 
             if (largest !== current) {
-                [arr[current], arr[largest]] = [arr[largest], arr[current]];
+                const temp = arr[current];
+                arr[current] = arr[largest];
+                arr[largest] = temp;
                 swaps++;
                 current = largest; // Move down to the child
             } else {
@@ -651,7 +654,9 @@ const pureHeap = (arr: number[]): PureStats => {
     
     // Extract elements
     for (let i = n - 1; i > 0; i--) {
-        [arr[0], arr[i]] = [arr[i], arr[0]];
+        const temp = arr[0];
+        arr[0] = arr[i];
+        arr[i] = temp;
         swaps++;
         heapify(i, 0);
     }
@@ -667,7 +672,11 @@ const pureQuickIterative = (arr: number[]): PureStats => {
         
         // Random pivot for iterative as well to ensure O(n log n) average
         const pivotIdx = Math.floor(Math.random() * (high - low + 1)) + low;
-        [arr[low], arr[pivotIdx]] = [arr[pivotIdx], arr[low]];
+        {
+            const temp = arr[low];
+            arr[low] = arr[pivotIdx];
+            arr[pivotIdx] = temp;
+        }
         if (pivotIdx !== low) swaps++;
 
         const pivot = arr[low];
@@ -684,11 +693,17 @@ const pureQuickIterative = (arr: number[]): PureStats => {
                 else break;
             }
             if(i < j) {
-                [arr[i], arr[j]] = [arr[j], arr[i]];
+                const temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
                 swaps++;
             } else break;
         }
-        [arr[low], arr[j]] = [arr[j], arr[low]];
+        {
+            const temp = arr[low];
+            arr[low] = arr[j];
+            arr[j] = temp;
+        }
         swaps++;
         
         const pi = j;
@@ -713,7 +728,11 @@ const pureQuickRecursive = (arr: number[]): PureStats => {
         while (low < high) {
             // Optimization: Random Pivot to avoid O(N^2) worst case on sorted/reverse-sorted data
             const pivotIdx = Math.floor(Math.random() * (high - low + 1)) + low;
-            [arr[low], arr[pivotIdx]] = [arr[pivotIdx], arr[low]];
+            {
+                const temp = arr[low];
+                arr[low] = arr[pivotIdx];
+                arr[pivotIdx] = temp;
+            }
             if (pivotIdx !== low) stats.swaps++;
 
             const pivot = arr[low];
@@ -730,11 +749,17 @@ const pureQuickRecursive = (arr: number[]): PureStats => {
                     else break;
                 }
                 if(i < j) {
-                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                    const temp = arr[i];
+                    arr[i] = arr[j];
+                    arr[j] = temp;
                     stats.swaps++;
                 } else break;
             }
-            [arr[low], arr[j]] = [arr[j], arr[low]];
+            {
+                const temp = arr[low];
+                arr[low] = arr[j];
+                arr[j] = temp;
+            }
             stats.swaps++;
             
             const pi = j;
@@ -814,19 +839,20 @@ export async function runBenchmarkAsync(
     array: number[], 
     shouldAbort: () => boolean
 ): Promise<{ time: number, comparisons: number, swaps: number }> {
-    // Check abort before starting
-    if (shouldAbort()) throw new Error("Benchmark Aborted");
-
-    const arr = [...array];
-    const start = performance.now();
-    
-    // EXECUTE PURE ALGORITHM (Blocking main thread for a brief moment)
-    const stats = PureAlgorithms[type](arr);
-    
-    const end = performance.now();
-    
-    // Check abort after finishing (in case it was long)
-    if (shouldAbort()) throw new Error("Benchmark Aborted");
-    
-    return { time: end - start, ...stats };
+    return new Promise((resolve, reject) => {
+        // Use setTimeout to ensure this runs in the next event loop tick,
+        // allowing React state updates (like "Running..." UI) to flush first.
+        setTimeout(() => {
+            if (shouldAbort()) {
+                reject(new Error("Benchmark Aborted"));
+                return;
+            }
+            try {
+                const result = runBenchmark(type, array);
+                resolve(result);
+            } catch (e) {
+                reject(e);
+            }
+        }, 0);
+    });
 }

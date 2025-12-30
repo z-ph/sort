@@ -330,6 +330,9 @@ const ConceptVisualizer: React.FC<Props> = ({
     // 检查是否是计数排序的 "寻找最大值" 阶段
     const isCountingScan = algorithm === AlgorithmType.COUNTING && step.aux?.maxValue !== undefined;
     
+    // 检查是否是插入排序系列，且存在暂存变量
+    const isInsertionKey = (algorithm === AlgorithmType.INSERTION || algorithm === AlgorithmType.BINARY_INSERTION || algorithm === AlgorithmType.SHELL) && step.aux?.val !== undefined;
+
     return (
         <div className="flex flex-col h-auto w-full"> {/* Changed from h-full to h-auto */}
             {isCountingScan && (
@@ -341,6 +344,22 @@ const ConceptVisualizer: React.FC<Props> = ({
                     <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 rounded-lg border border-amber-100 dark:border-amber-800">
                         <span className="text-[10px] font-bold text-amber-600/70 dark:text-amber-400/70 uppercase">Current Max</span>
                         <span className="text-sm font-black text-amber-600 dark:text-amber-400">{step.aux?.maxValue}</span>
+                    </div>
+                </div>
+            )}
+            
+            {/* 新增：插入排序的辅助变量显示区 */}
+            {isInsertionKey && (
+                <div className="shrink-0 px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm z-10 animate-in slide-in-from-top-2 fade-in duration-300">
+                    <div className="flex items-center gap-2">
+                        <ArrowDown size={16} className="text-sky-500" />
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">辅助变量 (Key)</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                         <span className="text-[9px] text-slate-400 font-bold uppercase hidden sm:inline">Holding Value:</span>
+                         <div className="flex items-center justify-center min-w-[3rem] px-3 py-1 bg-sky-50 dark:bg-sky-900/20 rounded-lg border border-sky-200 dark:border-sky-800 shadow-sm">
+                            <span className="text-sm font-black text-sky-600 dark:text-sky-400">{step.aux?.val}</span>
+                         </div>
                     </div>
                 </div>
             )}
@@ -373,7 +392,7 @@ const ConceptVisualizer: React.FC<Props> = ({
                             )}
                             {isKeyIdx && (
                                 <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-sky-500 font-black flex flex-col items-center animate-bounce">
-                                    <span className="text-[8px] uppercase tracking-tighter">Key</span>
+                                    <span className="text-[8px] uppercase tracking-tighter">Idx</span>
                                     <ArrowDown size={10} strokeWidth={3} />
                                 </div>
                             )}
