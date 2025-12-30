@@ -57,17 +57,17 @@ const BenchmarkPage: React.FC = () => {
 
         const algoOpt = ALGORITHM_OPTIONS[i];
         
-        // 更新 UI：显示当前正在跑哪个算法
+        // 更新界面：显示当前正在跑哪个算法
         setCurrentRunning(algoOpt.value as AlgorithmType);
         
-        // 小的停顿，确保UI有一次渲染机会
+        // 小的停顿，确保界面有一次渲染机会
         await new Promise(resolve => setTimeout(resolve, 10));
 
         // 再次检查中止
         if (abortRef.current) break;
 
-        // 执行异步基准测试任务 (Time Slicing inside)
-        // 传入 abort 检查回调
+        // 执行异步基准测试任务（内部时间切片）
+        // 传入中止检查回调
         const rawResult = await runBenchmarkAsync(
             algoOpt.value as AlgorithmType, 
             [...baseArray], 
@@ -113,7 +113,7 @@ const BenchmarkPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar Config */}
+        {/* 侧边栏配置 */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
@@ -245,9 +245,9 @@ const BenchmarkPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Results Area */}
+        {/* 结果区域 */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Main Chart */}
+          {/* 主图表 */}
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 relative overflow-hidden">
              {isBenchmarking && (
                 <div className="absolute top-0 left-0 h-1 bg-indigo-500 transition-all duration-300 ease-out z-10" style={{ width: `${(progress.current / progress.total) * 100}%` }}></div>
@@ -303,7 +303,7 @@ const BenchmarkPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Details Table */}
+          {/* 详情表格 */}
           {results.length > 0 && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                <div className="overflow-x-auto">
@@ -330,13 +330,13 @@ const BenchmarkPage: React.FC = () => {
                            <td className="px-6 py-4 text-right font-mono text-indigo-600 dark:text-indigo-400 font-bold">{res.timeMs}</td>
                            <td className="px-6 py-4 text-right text-slate-500 dark:text-slate-400">{res.comparisons.toLocaleString()}</td>
                            <td className="px-6 py-4 text-right text-slate-500 dark:text-slate-400">{res.swaps.toLocaleString()}</td>
-                           {/* Time Complexity */}
+                           {/* 时间复杂度 */}
                            <td className="px-6 py-4 text-center">
                              <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${opt?.complexity.includes('n²') ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
                                {opt?.complexity}
                              </span>
                            </td>
-                           {/* Space Complexity */}
+                           {/* 空间复杂度 */}
                            <td className="px-6 py-4 text-center">
                              <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${opt?.spaceComplexity.includes('1') ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'}`}>
                                {opt?.spaceComplexity}

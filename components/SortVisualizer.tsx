@@ -35,7 +35,7 @@ const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm, theme = 'l
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
     
-    // Background match: bg-slate-50 / bg-slate-950
+    // 背景色匹配：bg-slate-50 / bg-slate-950
     ctx.fillStyle = theme === 'dark' ? '#020617' : '#f8fafc';
     ctx.fillRect(0, 0, rect.width, rect.height);
 
@@ -50,9 +50,9 @@ const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm, theme = 'l
     for (let i = 0; i < total; i++) {
         const value = array[i];
         
-        // IMPROVED CONTRAST FOR DARK MODE
-        // Using a more vibrant slate/blue for better visibility in dark mode against pure dark background
-        let fillStyle = theme === 'dark' ? '#334155' : CHART_COLORS.bar; // slate-700 vs original dark blue
+        // 深色模式对比度优化
+        // 使用更鲜明的蓝灰色，深色背景更清晰
+        let fillStyle = theme === 'dark' ? '#334155' : CHART_COLORS.bar; // 用 slate-700 替代原深蓝
 
         if (sortedSet.has(i)) {
             fillStyle = CHART_COLORS.sorted;
@@ -63,7 +63,7 @@ const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm, theme = 'l
         }
 
         if (algorithm === AlgorithmType.QUICK_REC || algorithm === AlgorithmType.QUICK_ITER) {
-            if (i === aux?.pivot) fillStyle = '#a855f7'; // Purple for pivot
+            if (i === aux?.pivot) fillStyle = '#a855f7'; // 枢轴用紫色
         } else if (algorithm === AlgorithmType.HEAP) {
             if (aux?.heapSize !== undefined && i >= aux.heapSize) {
                 fillStyle = CHART_COLORS.sorted;
@@ -82,7 +82,7 @@ const SortVisualizer: React.FC<Props> = ({ step, maxValue, algorithm, theme = 'l
         ctx.fillStyle = fillStyle;
         ctx.fillRect(x, y, w, barHeight);
         
-        // Add subtle outlines for clarity
+        // 添加细描边增强清晰度
         if (total < 100) {
           ctx.strokeStyle = theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
           ctx.lineWidth = 0.5;

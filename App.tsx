@@ -29,7 +29,7 @@ export const getAlgorithmMetrics = (type: AlgorithmType) => {
 };
 
 const SortingLab: React.FC = () => {
-  const toast = useToast(); // 使用自定义 Toast Hook
+  const toast = useToast(); // 使用自定义 Toast 钩子
   const [view, setView] = useState<'home' | 'benchmark'>('home');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
@@ -478,7 +478,7 @@ const SortingLab: React.FC = () => {
   );
 };
 
-// 包装组件以提供 Context
+// 包装组件以提供上下文
 const App: React.FC = () => {
   return (
     <ToastProvider>

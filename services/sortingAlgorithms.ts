@@ -1,7 +1,7 @@
 import { AlgorithmType, SortStep } from '../types';
 
-// Helper to create a step
-// OPTIMIZATION: Added isBenchmark flag to skip expensive array cloning during stress tests
+// 构建一步数据的辅助函数
+// 优化：增加 isBenchmark，在压测时跳过昂贵的数组拷贝
 const createStep = (
   array: number[],
   comparing: number[] = [],
@@ -14,16 +14,14 @@ const createStep = (
   array: isBenchmark ? [] : [...array], 
   comparing,
   swapping,
-  sorted: isBenchmark ? [] : [...sorted], // Clone sorted to prevent reference mutation issues in history
+  sorted: isBenchmark ? [] : [...sorted], // 克隆 sorted，避免历史记录里引用被改动
   description,
   aux
 });
 
-// ============================================================================
-// VISUALIZATION GENERATORS (Keep these for the Visualizer UI)
-// ============================================================================
+// 可视化生成器（供可视化界面使用）
 
-// --- Bubble Sort ---
+// 冒泡排序
 export function* bubbleSort(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
   const n = array.length;
   const arr = [...array];
@@ -48,7 +46,7 @@ export function* bubbleSort(array: number[], isBenchmark: boolean = false): Gene
   return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
 }
 
-// --- Selection Sort ---
+// 选择排序
 export function* selectionSort(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
   const n = array.length;
   const arr = [...array];
@@ -73,7 +71,7 @@ export function* selectionSort(array: number[], isBenchmark: boolean = false): G
   return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
 }
 
-// --- Insertion Sort ---
+// 插入排序
 export function* insertionSort(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
   const n = array.length;
   const arr = [...array];
@@ -99,7 +97,7 @@ export function* insertionSort(array: number[], isBenchmark: boolean = false): G
   return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
 }
 
-// --- Binary Insertion Sort ---
+// 折半插入排序
 export function* binaryInsertionSort(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
     const n = array.length;
     const arr = [...array];
@@ -124,7 +122,7 @@ export function* binaryInsertionSort(array: number[], isBenchmark: boolean = fal
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
 }
 
-// --- Shell Sort ---
+// 希尔排序
 export function* shellSort(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
     const n = array.length;
     const arr = [...array];
@@ -148,7 +146,7 @@ export function* shellSort(array: number[], isBenchmark: boolean = false): Gener
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
 }
 
-// --- Counting Sort ---
+// 计数排序
 export function* countingSort(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
     const n = array.length;
     const arr = [...array];
@@ -184,7 +182,7 @@ export function* countingSort(array: number[], isBenchmark: boolean = false): Ge
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
 }
 
-// --- Radix Sort (LSD Iterative) ---
+// 基数排序（LSD 迭代）
 export function* radixSort(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
     const arr = [...array];
     const n = arr.length;
@@ -218,7 +216,7 @@ export function* radixSort(array: number[], isBenchmark: boolean = false): Gener
     return createStep(arr, [], [], Array.from({ length: n }, (_, i) => i), '完成', undefined, isBenchmark);
 }
 
-// --- Radix Sort (MSD Recursive) ---
+// 基数排序（MSD 递归）
 export function* radixSortRecursive(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
     const arr = [...array];
     const n = arr.length;
@@ -268,7 +266,7 @@ function* _radixMSD(arr: number[], low: number, high: number, exp: number, clone
     }
 }
 
-// --- Quick Sort ---
+// 快速排序
 function* _partition(arr: number[], low: number, high: number, isBenchmark: boolean): Generator<SortStep, number, any> {
     const pivotIdx = Math.floor(Math.random() * (high - low + 1)) + low;
     if (pivotIdx !== low) {
@@ -330,7 +328,7 @@ export function* quickSortIterative(array: number[], isBenchmark: boolean = fals
   return createStep(arr, [], [], Array.from({ length: arr.length }, (_, i) => i), '完成', undefined, isBenchmark);
 }
 
-// --- Merge Sort ---
+// 归并排序
 export function* mergeSortRecursive(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
     const arr = [...array];
     yield* _mergeSortHelper(arr, 0, arr.length - 1, isBenchmark);
@@ -360,7 +358,7 @@ function* _merge(arr: number[], left: number, mid: number, right: number, isBenc
     }
 }
 
-// --- Heap Sort ---
+// 堆排序
 export function* heapSort(array: number[], isBenchmark: boolean = false): Generator<SortStep> {
     const arr = [...array];
     const n = arr.length;
@@ -393,7 +391,7 @@ function* _heapify(arr: number[], n: number, i: number, isBenchmark: boolean): G
     }
 }
 
-// Export Generators for Visualizer
+// 导出可视化生成器
 export const AlgorithmGenerators: Record<AlgorithmType, (array: number[], isBenchmark?: boolean) => Generator<SortStep>> = {
   [AlgorithmType.BUBBLE]: bubbleSort,
   [AlgorithmType.SELECTION]: selectionSort,
@@ -410,14 +408,12 @@ export const AlgorithmGenerators: Record<AlgorithmType, (array: number[], isBenc
   [AlgorithmType.HEAP]: heapSort
 };
 
-// ============================================================================
-// PURE ALGORITHMS FOR BENCHMARKING (No Generators, No Yield Overhead)
-// ============================================================================
+// 基准测试用的纯算法（无生成器、无 yield 开销）
 
 interface PureStats { comparisons: number; swaps: number; }
 
-// Optimize: Use temp variable swap instead of destructuring [a,b] = [b,a] 
-// to avoid overhead in high-frequency loops (like Bubble Sort O(n^2) swaps)
+// 优化：用临时变量交换，避免使用解构赋值进行 [a,b] 与 [b,a] 互换
+// 避免在高频循环里产生额外开销（如冒泡排序 O(n^2) 交换）
 const pureBubble = (arr: number[]): PureStats => {
     let comparisons = 0, swaps = 0;
     const n = arr.length;
@@ -467,14 +463,14 @@ const pureInsertion = (arr: number[]): PureStats => {
             comparisons++;
             if (arr[j] > key) {
                 arr[j + 1] = arr[j];
-                swaps++; // Count shifting as a swap-like operation for stats
+                swaps++; // 将移位计作一次类似交换，便于统计
                 j--;
             } else {
                 break;
             }
         }
         arr[j + 1] = key;
-        swaps++; // Assignment
+        swaps++; // 赋值
     }
     return { comparisons, swaps };
 };
@@ -525,7 +521,7 @@ const pureShell = (arr: number[]): PureStats => {
 };
 
 const pureCounting = (arr: number[]): PureStats => {
-    let comparisons = 0, swaps = 0; // Comparisons used for scanning, Swaps used for writes
+    let comparisons = 0, swaps = 0; // comparisons 用于扫描，swaps 用于写入
     const n = arr.length;
     if (n === 0) return { comparisons, swaps };
     
@@ -538,7 +534,7 @@ const pureCounting = (arr: number[]): PureStats => {
     const count = new Array(max + 1).fill(0);
     for(let i=0; i<n; i++) {
         count[arr[i]]++;
-        comparisons++; // Accessing
+        comparisons++; // 访问
     }
     
     let z = 0;
@@ -546,7 +542,7 @@ const pureCounting = (arr: number[]): PureStats => {
         while(count[i] > 0) {
             arr[z++] = i;
             count[i]--;
-            swaps++; // Write back
+            swaps++; // 写回
         }
     }
     return { comparisons, swaps };
@@ -563,13 +559,13 @@ const pureRadixIterative = (arr: number[]): PureStats => {
         for (let i = 0; i < n; i++) {
             const index = Math.floor(arr[i] / exp) % 10;
             buckets[index].push(arr[i]);
-            comparisons++; // Scan cost
+            comparisons++; // 扫描成本
         }
         let arrIdx = 0;
         for (let i = 0; i < 10; i++) {
             for(const val of buckets[i]) {
                 arr[arrIdx++] = val;
-                swaps++; // Copy back cost
+                swaps++; // 回写成本
             }
         }
     }
@@ -640,19 +636,19 @@ const pureHeap = (arr: number[]): PureStats => {
                 arr[current] = arr[largest];
                 arr[largest] = temp;
                 swaps++;
-                current = largest; // Move down to the child
+                current = largest; // 向下移动到子节点
             } else {
-                break; // Position found
+                break; // 位置已确定
             }
         }
     };
 
-    // Build heap
+    // 建堆
     for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
         heapify(n, i);
     }
     
-    // Extract elements
+    // 取出元素
     for (let i = n - 1; i > 0; i--) {
         const temp = arr[0];
         arr[0] = arr[i];
@@ -670,7 +666,7 @@ const pureQuickIterative = (arr: number[]): PureStats => {
     while (stack.length > 0) {
         const high = stack.pop()!, low = stack.pop()!;
         
-        // Random pivot for iterative as well to ensure O(n log n) average
+        // 迭代版本也用随机枢轴，保证平均 O(n log n)
         const pivotIdx = Math.floor(Math.random() * (high - low + 1)) + low;
         {
             const temp = arr[low];
@@ -724,9 +720,9 @@ const pureQuickIterative = (arr: number[]): PureStats => {
 const pureQuickRecursive = (arr: number[]): PureStats => {
     const stats = { comparisons: 0, swaps: 0 };
     const _sort = (low: number, high: number) => {
-        // Optimization: Use Loop for Tail Recursion to prevent Stack Overflow
+        // 优化：用循环替代尾递归，避免栈溢出
         while (low < high) {
-            // Optimization: Random Pivot to avoid O(N^2) worst case on sorted/reverse-sorted data
+            // 优化：随机枢轴，避免已排序/逆序数据退化到 O(N^2)
             const pivotIdx = Math.floor(Math.random() * (high - low + 1)) + low;
             {
                 const temp = arr[low];
@@ -764,13 +760,13 @@ const pureQuickRecursive = (arr: number[]): PureStats => {
             
             const pi = j;
             
-            // Recurse on the smaller partition to guarantee O(log N) stack depth
+            // 优先递归较小分区，保证栈深 O(log N)
             if (pi - low < high - pi) {
                 _sort(low, pi - 1);
-                low = pi + 1; // Update 'low' for next iteration (Tail Call Optimization)
+                low = pi + 1; // 更新 low 进入下一轮（尾调用优化）
             } else {
                 _sort(pi + 1, high);
-                high = pi - 1; // Update 'high' for next iteration
+                high = pi - 1; // 更新 high 进入下一轮
             }
         }
     };
@@ -806,7 +802,7 @@ const pureMergeRecursive = (arr: number[]): PureStats => {
     return stats;
 };
 
-// Pure implementations mapping
+// 纯实现映射
 const PureAlgorithms: Record<AlgorithmType, (arr: number[]) => PureStats> = {
     [AlgorithmType.BUBBLE]: pureBubble,
     [AlgorithmType.SELECTION]: pureSelection,
@@ -819,12 +815,12 @@ const PureAlgorithms: Record<AlgorithmType, (arr: number[]) => PureStats> = {
     [AlgorithmType.QUICK_REC]: pureQuickRecursive,
     [AlgorithmType.QUICK_ITER]: pureQuickIterative,
     [AlgorithmType.MERGE_REC]: pureMergeRecursive,
-    [AlgorithmType.MERGE_ITER]: pureMergeRecursive, // Using recursive pure for benchmark simplicity, or impl iterative if strictly needed
+    [AlgorithmType.MERGE_ITER]: pureMergeRecursive, // 基准测试为简化使用递归纯实现，如需可换成迭代
     [AlgorithmType.HEAP]: pureHeap
 };
 
 export function runBenchmark(type: AlgorithmType, array: number[]): { time: number, comparisons: number, swaps: number } {
-    // This function is kept for WebWorker compatibility if needed
+    // 保留该函数以便需要时兼容 WebWorker
     const arr = [...array];
     const start = performance.now();
     const stats = PureAlgorithms[type](arr);
@@ -832,16 +828,16 @@ export function runBenchmark(type: AlgorithmType, array: number[]): { time: numb
     return { time: end - start, ...stats };
 }
 
-// Rewritten Async Benchmark: No Generators, No Yielding inside algorithm
-// We simply run the pure function synchronously. For N=5000, even O(n^2) is < 200ms in V8.
+// 重写异步基准：不使用生成器，算法内部不 yield
+// 直接同步执行纯函数。N 为 5000 时，连 O(n^2) 在 V8 中也小于 200ms。
 export async function runBenchmarkAsync(
     type: AlgorithmType, 
     array: number[], 
     shouldAbort: () => boolean
 ): Promise<{ time: number, comparisons: number, swaps: number }> {
     return new Promise((resolve, reject) => {
-        // Use setTimeout to ensure this runs in the next event loop tick,
-        // allowing React state updates (like "Running..." UI) to flush first.
+        // 用 setTimeout 确保在下一轮事件循环执行，
+        // 让 React 状态更新（如“运行中...”）先刷新。
         setTimeout(() => {
             if (shouldAbort()) {
                 reject(new Error("Benchmark Aborted"));

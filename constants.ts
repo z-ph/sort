@@ -21,8 +21,8 @@ export const ALGORITHM_OPTIONS = [
 ];
 
 export const CHART_COLORS = {
-  bar: '#6366f1', // Indigo 500
-  compare: '#eab308', // Yellow 500
-  swap: '#ef4444', // Red 500
-  sorted: '#22c55e', // Green 500
+  bar: '#6366f1', // 靛蓝 500
+  compare: '#eab308', // 黄色 500
+  swap: '#ef4444', // 红色 500
+  sorted: '#22c55e', // 绿色 500
 };

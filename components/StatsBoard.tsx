@@ -2,7 +2,7 @@ import React from 'react';
 
 interface Props {
   currentStats: { comparisons: number; swaps: number; time: string };
-  benchmarkResults?: any[]; // Keep props signature but unused
+  benchmarkResults?: any[]; // 保留签名但当前未使用
 }
 
 const StatsBoard: React.FC<Props> = ({ currentStats }) => {

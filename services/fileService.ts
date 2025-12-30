@@ -38,7 +38,7 @@ export const parseImportFile = async (file: File): Promise<number[]> => {
          throw new Error('JSON 数组中未找到有效的数值数据。');
       }
     } catch (e: any) {
-      // 捕获所有 JSON 解析错误并重新包装，确保 UI 层能接收到清晰的消息
+      // 捕获所有 JSON 解析错误并重新包装，确保界面层能接收到清晰的消息
       if (e instanceof SyntaxError) {
          throw new Error(`非法 JSON 文件: 语法解析错误 (${e.message})`);
       }
@@ -46,14 +46,14 @@ export const parseImportFile = async (file: File): Promise<number[]> => {
       throw e; 
     }
   } else if (extension === 'csv') {
-    // 处理 CSV: 逗号或换行符分隔
+    // 处理 CSV：逗号或换行分隔
     numbers = text.split(/[,\n\r]+/)
       .map(s => s.trim())
       .filter(s => s.length > 0) // 移除空字符串
       .map(s => Number(s))
       .filter(n => !isNaN(n));
   } else {
-    // 处理 TXT: 空白字符分隔 (空格, tab, 换行)
+    // 处理 TXT：按空白分隔（空格、制表符、换行）
     numbers = text.split(/\s+/)
       .map(s => s.trim())
       .filter(s => s.length > 0)
@@ -64,7 +64,7 @@ export const parseImportFile = async (file: File): Promise<number[]> => {
   return numbers;
 };
 
-// Deprecated: kept for single array export if needed, but UI now uses history export
+// 已弃用：保留用于单数组导出，但现在使用历史导出
 export const downloadFile = (data: number[], format: 'json' | 'csv' | 'txt', filename: string) => {
   let content = '';
   let mimeType = '';
@@ -88,25 +88,25 @@ export const downloadSortingHistory = (history: ExportStep[], format: 'json' | '
   let mimeType = '';
 
   if (format === 'json') {
-    // JSON: 导出完整的对象数组
+    // JSON：导出完整对象数组
     content = JSON.stringify(history, null, 2);
     mimeType = 'application/json';
   } else if (format === 'csv') {
-    // CSV Header
+    // CSV 表头
     const maxLen = history.length > 0 ? history[0].array.length : 0;
     const valueHeaders = Array.from({length: maxLen}, (_, i) => `Val_${i}`).join(',');
     content = `Step,Description,${valueHeaders}\n`;
 
-    // CSV Rows
+    // CSV 行
     content += history.map(h => {
-        // Escape quotes in description
+        // 转义描述中的引号
         const safeDesc = `"${h.description.replace(/"/g, '""')}"`;
         return `${h.stepIndex},${safeDesc},${h.array.join(',')}`;
     }).join('\n');
     
     mimeType = 'text/csv';
   } else {
-    // TXT: Human readable format
+    // TXT：可读文本格式
     content = history.map(h => {
         return `[Step ${h.stepIndex}] ${h.description}\nArray: [${h.array.join(', ')}]\n`;
     }).join('\n----------------------------------------\n');
