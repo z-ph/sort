@@ -172,7 +172,6 @@ export function* countingSort(array: number[], isBenchmark: boolean = false): Ge
     let z = 0;
     for(let i = 0; i <= max; i++) {
       while(count[i] > 0) {
-          yield createStep(arr, [], [z], getSortedRange(z), isBenchmark ? '' : `从桶[${i}]取出 ${i}`, { bucketIndex: i, val: i, counts: isBenchmark ? [] : [...count] }, isBenchmark);
           arr[z] = i;
           count[i]--;
           yield createStep(arr, [], [z], getSortedRange(z+1), isBenchmark ? '' : `放置 ${i} 到索引 ${z}`, { bucketIndex: i, val: i, counts: isBenchmark ? [] : [...count] }, isBenchmark);
