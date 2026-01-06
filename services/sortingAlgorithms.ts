@@ -157,7 +157,6 @@ export function* countingSort(array: number[], isBenchmark: boolean = false): Ge
       yield createStep(arr, [i], [], [], isBenchmark ? '' : `扫描元素 ${arr[i]}... (当前最大值: ${max})`, isBenchmark ? undefined : { val: arr[i], maxValue: max }, isBenchmark);
       if (arr[i] > max) {
           max = arr[i];
-          yield createStep(arr, [i], [], [], isBenchmark ? '' : `更新最大值 Max = ${max}`, isBenchmark ? undefined : { val: arr[i], maxValue: max }, isBenchmark);
       }
     }
     yield createStep(arr, [], [], [], isBenchmark ? '' : `扫描结束，最大值为 ${max}，将创建 ${max + 1} 个计数桶`, { maxValue: max }, isBenchmark);
