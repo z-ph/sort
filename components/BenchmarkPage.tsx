@@ -3,8 +3,9 @@ import { AlgorithmType, SortStats } from '../types';
 import { ALGORITHM_OPTIONS } from '../constants';
 import { getAlgorithmMetrics } from '../App';
 import { runBenchmarkAsync } from '../services/sortingAlgorithms';
+import { downloadBenchmarkData, BenchmarkData, parseImportFile } from '../services/fileService';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import { Play, RotateCcw, BarChart3, Clock, Zap, Info, Square, Loader2 } from 'lucide-react';
+import { Play, RotateCcw, BarChart3, Clock, Zap, Info, Square, Loader2, Download, FileJson, FileType, FileText, Upload } from 'lucide-react';
 import { useToast } from './Toast';
 
 const BenchmarkPage: React.FC = () => {
@@ -17,7 +18,9 @@ const BenchmarkPage: React.FC = () => {
   const [distribution, setDistribution] = useState<'random' | 'sorted' | 'reverse'>('random');
   const [currentRunning, setCurrentRunning] = useState<AlgorithmType | null>(null);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
-  
+  const [testArray, setTestArray] = useState<number[]>([]); // 存储测试数组
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // 用于中断测试的引用
   const abortRef = useRef(false);
 
@@ -34,19 +37,29 @@ const BenchmarkPage: React.FC = () => {
     setResults([]);
     setProgress({ current: 0, total: ALGORITHM_OPTIONS.length });
     abortRef.current = false;
-    
-    // 1. 预先生成统一的随机数据，保证公平性
-    const effectiveMin = Math.min(minVal, maxVal);
-    const effectiveMax = Math.max(minVal, maxVal);
-    
-    let baseArray = Array.from({ length: benchmarkSize }, () => 
-      Math.floor(Math.random() * (effectiveMax - effectiveMin + 1) + effectiveMin)
-    );
 
-    if (distribution === 'sorted') {
-        baseArray.sort((a, b) => a - b);
-    } else if (distribution === 'reverse') {
-        baseArray.sort((a, b) => b - a);
+    // 1. 使用导入的测试数据或生成新数据
+    let baseArray: number[];
+    if (testArray.length > 0 && testArray.length === benchmarkSize) {
+      // 使用已导入的测试数据
+      baseArray = [...testArray];
+    } else {
+      // 预先生成统一的随机数据，保证公平性
+      const effectiveMin = Math.min(minVal, maxVal);
+      const effectiveMax = Math.max(minVal, maxVal);
+
+      baseArray = Array.from({ length: benchmarkSize }, () =>
+        Math.floor(Math.random() * (effectiveMax - effectiveMin + 1) + effectiveMin)
+      );
+
+      if (distribution === 'sorted') {
+          baseArray.sort((a, b) => a - b);
+      } else if (distribution === 'reverse') {
+          baseArray.sort((a, b) => b - a);
+      }
+
+      // 保存测试数组用于导出
+      setTestArray([...baseArray]);
     }
 
     try {
@@ -56,10 +69,10 @@ const BenchmarkPage: React.FC = () => {
         if (abortRef.current) break;
 
         const algoOpt = ALGORITHM_OPTIONS[i];
-        
+
         // 更新界面：显示当前正在跑哪个算法
         setCurrentRunning(algoOpt.value as AlgorithmType);
-        
+
         // 小的停顿，确保界面有一次渲染机会
         await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -69,11 +82,11 @@ const BenchmarkPage: React.FC = () => {
         // 执行异步基准测试任务（内部时间切片）
         // 传入中止检查回调
         const rawResult = await runBenchmarkAsync(
-            algoOpt.value as AlgorithmType, 
-            [...baseArray], 
+            algoOpt.value as AlgorithmType,
+            [...baseArray],
             () => abortRef.current
         );
-        
+
         const result: SortStats = {
           algorithm: algoOpt.value as AlgorithmType,
           timeMs: parseFloat(rawResult.time.toFixed(3)),
@@ -108,6 +121,78 @@ const BenchmarkPage: React.FC = () => {
     setResults([]);
     setCurrentRunning(null);
     setProgress({ current: 0, total: 0 });
+    setTestArray([]);
+  };
+
+  const handleImport = async (file: File) => {
+    try {
+      const numbers = await parseImportFile(file);
+
+      if (numbers.length > 0) {
+        setTestArray(numbers);
+        setBenchmarkSize(numbers.length);
+
+        // 自动调整数值范围
+        const fileMin = Math.min(...numbers);
+        const fileMax = Math.max(...numbers);
+        setMinVal(fileMin);
+        setMaxVal(fileMax);
+
+        // 判断数据分布
+        let detectedDistribution: 'random' | 'sorted' | 'reverse' = 'random';
+        let isSorted = true;
+        let isReverse = true;
+
+        for (let i = 1; i < numbers.length; i++) {
+          if (numbers[i] < numbers[i - 1]) isSorted = false;
+          if (numbers[i] > numbers[i - 1]) isReverse = false;
+        }
+
+        if (isSorted) detectedDistribution = 'sorted';
+        else if (isReverse) detectedDistribution = 'reverse';
+
+        setDistribution(detectedDistribution);
+
+        toast.success(`成功导入 ${numbers.length} 个数据点`);
+      } else {
+        toast.warning('文件已读取，但未解析出有效的数值数据，请检查格式。');
+      }
+    } catch (e: any) {
+      const errorMessage = e instanceof Error ? e.message : (typeof e === 'string' ? e : '发生未知错误');
+      toast.error(`导入失败: ${errorMessage}`);
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleExport = (format: 'json' | 'csv' | 'txt') => {
+    if (results.length === 0) {
+      toast.warning('暂无测试结果，请先运行测试');
+      return;
+    }
+
+    const benchmarkData: BenchmarkData = {
+      timestamp: new Date().toLocaleString('zh-CN'),
+      config: {
+        arraySize: benchmarkSize,
+        minVal,
+        maxVal,
+        distribution
+      },
+      testArray,
+      results: results.map(r => ({
+        algorithm: r.algorithm,
+        timeMs: r.timeMs,
+        comparisons: r.comparisons,
+        swaps: r.swaps,
+        arraySize: r.arraySize
+      }))
+    };
+
+    downloadBenchmarkData(benchmarkData, format, `benchmark_report_${Date.now()}`);
+    toast.success('导出成功！已开始下载');
   };
 
   return (
@@ -230,6 +315,55 @@ const BenchmarkPage: React.FC = () => {
                   <RotateCcw size={18} />
                   清除结果
                 </button>
+
+                {/* 导入导出区域 */}
+                <div className="pt-2 border-t dark:border-slate-700 space-y-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isBenchmarking}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-xl font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all disabled:opacity-50"
+                  >
+                    <Upload size={16} />
+                    导入测试数据
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={(e) => e.target.files?.[0] && handleImport(e.target.files[0])}
+                    className="hidden"
+                    accept=".json,.csv,.txt"
+                  />
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleExport('json')}
+                      disabled={isBenchmarking || results.length === 0}
+                      data-tooltip="导出为 JSON 格式"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-xl font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all disabled:opacity-50"
+                    >
+                      <FileJson size={16} />
+                      <span className="text-xs">JSON</span>
+                    </button>
+                    <button
+                      onClick={() => handleExport('csv')}
+                      disabled={isBenchmarking || results.length === 0}
+                      data-tooltip="导出为 CSV 格式"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-xl font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all disabled:opacity-50"
+                    >
+                      <FileType size={16} />
+                      <span className="text-xs">CSV</span>
+                    </button>
+                    <button
+                      onClick={() => handleExport('txt')}
+                      disabled={isBenchmarking || results.length === 0}
+                      data-tooltip="导出为 TXT 格式"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-xl font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all disabled:opacity-50"
+                    >
+                      <FileText size={16} />
+                      <span className="text-xs">TXT</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

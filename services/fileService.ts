@@ -121,6 +121,95 @@ export const downloadSample = (format: 'json' | 'csv' | 'txt') => {
   downloadFile(sample, format, 'sample_array');
 };
 
+export interface BenchmarkData {
+  timestamp: string;
+  config: {
+    arraySize: number;
+    minVal: number;
+    maxVal: number;
+    distribution: 'random' | 'sorted' | 'reverse';
+  };
+  testArray: number[];
+  results: Array<{
+    algorithm: string;
+    timeMs: number;
+    comparisons: number;
+    swaps: number;
+    arraySize: number;
+  }>;
+}
+
+export const downloadBenchmarkData = (data: BenchmarkData, format: 'json' | 'csv' | 'txt', filename: string) => {
+  let content = '';
+  let mimeType = '';
+
+  if (format === 'json') {
+    content = JSON.stringify(data, null, 2);
+    mimeType = 'application/json';
+  } else if (format === 'csv') {
+    // CSV 导出分为两个部分：测试配置和结果
+    content = '排序算法性能测试报告\n';
+    content += `测试时间,${data.timestamp}\n`;
+    content += `数组规模,${data.config.arraySize}\n`;
+    content += `数值范围,${data.config.minVal}-${data.config.maxVal}\n`;
+    content += `数据分布,${data.config.distribution}\n`;
+    content += '\n';
+
+    // 测试数组（如果数组太大，只导出前100个和后100个）
+    if (data.testArray.length <= 200) {
+      content += '完整测试数组,' + data.testArray.join(',') + '\n';
+    } else {
+      content += '测试数组前100个,' + data.testArray.slice(0, 100).join(',') + '\n';
+      content += '测试数组后100个,' + data.testArray.slice(-100).join(',') + '\n';
+      content += `注: 数组过长(共${data.testArray.length}个元素)，仅导出首尾部分\n`;
+    }
+    content += '\n';
+
+    // 性能测试结果
+    content += '算法名称,总耗时(ms),比较/扫描项,交换/写回项,数组规模\n';
+    data.results.forEach(result => {
+      content += `${result.algorithm},${result.timeMs},${result.comparisons},${result.swaps},${result.arraySize}\n`;
+    });
+
+    mimeType = 'text/csv';
+  } else {
+    // TXT：可读文本格式
+    content = '='.repeat(60) + '\n';
+    content += '排序算法性能测试报告\n';
+    content += '='.repeat(60) + '\n\n';
+
+    content += '【测试配置】\n';
+    content += `测试时间: ${data.timestamp}\n`;
+    content += `数组规模: ${data.config.arraySize}\n`;
+    content += `数值范围: ${data.config.minVal} - ${data.config.maxVal}\n`;
+    content += `数据分布: ${data.config.distribution}\n\n`;
+
+    content += '【测试数组】\n';
+    if (data.testArray.length <= 200) {
+      content += '完整数组:\n' + data.testArray.join(', ') + '\n\n';
+    } else {
+      content += `数组过长(共${data.testArray.length}个元素)，仅显示首尾部分:\n`;
+      content += '前100个: ' + data.testArray.slice(0, 100).join(', ') + '\n';
+      content += '后100个: ' + data.testArray.slice(-100).join(', ') + '\n\n';
+    }
+
+    content += '【性能测试结果】\n';
+    content += '-'.repeat(60) + '\n';
+    data.results.forEach((result, index) => {
+      content += `${index + 1}. ${result.algorithm}\n`;
+      content += `   总耗时: ${result.timeMs} ms\n`;
+      content += `   比较/扫描: ${result.comparisons.toLocaleString()}\n`;
+      content += `   交换/写回: ${result.swaps.toLocaleString()}\n`;
+      content += `   数组规模: ${result.arraySize}\n`;
+      content += '\n';
+    });
+
+    mimeType = 'text/plain';
+  }
+
+  triggerDownload(content, mimeType, filename, format);
+};
+
 const triggerDownload = (content: string, mimeType: string, filename: string, extension: string) => {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
