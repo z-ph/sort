@@ -12,7 +12,9 @@
     "version:bump": "node scripts/bump-version.js",
     "version:major": "node scripts/bump-version.js major",
     "version:minor": "node scripts/bump-version.js minor",
-    "version:patch": "node scripts/bump-version.js patch"
+    "version:patch": "node scripts/bump-version.js patch",
+    "web:deploy": "gh workflow run prod.yml --ref prod",
+    "github:release": "gh workflow run electron-release.yml --ref prod    "
   },
   "dependencies": {
     "lucide-react": "^0.561.0",
